@@ -1,0 +1,132 @@
+diff --git a/main/xiaozhi-server/core/connection.py b/main/xiaozhi-server/core/connection.py
+index 4e45032..8a0c780 100644
+--- a/main/xiaozhi-server/core/connection.py
++++ b/main/xiaozhi-server/core/connection.py
+@@ -117,6 +117,7 @@ class ConnectionHandler:
+         self.client_is_speaking = False
+         self.client_listen_mode = "auto"
+         self.client_aec = False  # 是否启用了服务端AEC
++        self.single_turn_active = False
+ 
+         # 线程任务相关
+         self.loop = None  # 在 handle_connection 中获取运行中的事件循环
+@@ -1688,11 +1689,12 @@ class ConnectionHandler:
+     def chat_and_close(self, text):
+         """Chat with the user and then close the connection"""
+         try:
++            # Set this before producing TTS so the audio sender cannot consume
++            # the LAST packet before the close flag is visible.
++            self.close_after_chat = True
++
+             # Use the existing chat method
+             self.chat(text)
+-
+-            # After chat is complete, close the connection
+-            self.close_after_chat = True
+         except Exception as e:
+             self.logger.bind(tag=TAG).error(f"Chat and close error: {str(e)}")
+ 
+diff --git a/main/xiaozhi-server/core/handle/receiveAudioHandle.py b/main/xiaozhi-server/core/handle/receiveAudioHandle.py
+index 504669b..87d1c93 100644
+--- a/main/xiaozhi-server/core/handle/receiveAudioHandle.py
++++ b/main/xiaozhi-server/core/handle/receiveAudioHandle.py
+@@ -15,6 +15,13 @@ TAG = __name__
+ 
+ 
+ async def handleAudioMessage(conn: "ConnectionHandler", pcm_frame):
++    # Once a command has been accepted in single-turn mode, discard the
++    # remaining microphone stream until the answer finishes and the connection
++    # closes. Otherwise a pause inside the same phrase can become a second ASR
++    # result that aborts the answer already in progress.
++    if conn.config.get("single_turn_mode", False) and conn.single_turn_active:
++        return
++
+     # 当前片段是否有人说话
+     have_voice = conn.vad.is_vad(conn, pcm_frame)
+     # 如果设备刚刚被唤醒，短暂忽略VAD检测
+@@ -41,6 +48,13 @@ async def resume_vad_detection(conn: "ConnectionHandler"):
+ 
+ 
+ async def startToChat(conn: "ConnectionHandler", text):
++    single_turn_mode = conn.config.get("single_turn_mode", False)
++    if single_turn_mode and conn.single_turn_active:
++        conn.logger.bind(tag=TAG).info(
++            "Ignorando transcripción adicional mientras se responde la orden actual"
++        )
++        return
++
+     # 检查输入是否是JSON格式（包含说话人信息）
+     speaker_name = None
+     actual_text = text
+@@ -94,13 +108,24 @@ async def startToChat(conn: "ConnectionHandler", text):
+         # 如果意图已被处理，不再进行聊天
+         return
+ 
++    if single_turn_mode:
++        conn.single_turn_active = True
++        conn.close_after_chat = True
++
+     # 意图未被处理，继续常规聊天流程，使用实际文本内容
+     await send_stt_message(conn, actual_text)
+ 
+     # 准备开始新会话
+     conn.client_abort = False
+ 
+-    conn.executor.submit(conn.chat, actual_text)
++    # En modo de una sola orden, responder y cerrar el canal para volver a
++    # esperar la palabra de activación en vez de captar conversaciones de fondo.
++    chat_handler = (
++        conn.chat_and_close
++        if single_turn_mode
++        else conn.chat
++    )
++    conn.executor.submit(chat_handler, actual_text)
+ 
+ 
+ async def no_voice_close_connect(conn: "ConnectionHandler", have_voice):
+diff --git a/main/xiaozhi-server/core/providers/asr/openai.py b/main/xiaozhi-server/core/providers/asr/openai.py
+index c917cce..44c5b84 100644
+--- a/main/xiaozhi-server/core/providers/asr/openai.py
++++ b/main/xiaozhi-server/core/providers/asr/openai.py
+@@ -15,7 +15,8 @@ class ASRProvider(ASRProviderBase):
+         self.interface_type = InterfaceType.NON_STREAM
+         self.api_key = config.get("api_key")
+         self.api_url = config.get("base_url")
+-        self.model = config.get("model_name")        
++        self.model = config.get("model_name")
++        self.language = config.get("language")  # hint de idioma opcional (ej. "es")
+         self.output_dir = config.get("output_dir")
+         self.delete_audio_file = delete_audio_file
+ 
+@@ -40,6 +41,8 @@ class ASRProvider(ASRProviderBase):
+             data = {
+                 "model": self.model
+             }
++            if self.language:
++                data["language"] = self.language
+ 
+ 
+             with open(file_path, "rb") as audio_file:  # 使用with语句确保文件关闭
+diff --git a/main/xiaozhi-server/core/providers/vad/silero.py b/main/xiaozhi-server/core/providers/vad/silero.py
+index d134f25..7f91102 100644
+--- a/main/xiaozhi-server/core/providers/vad/silero.py
++++ b/main/xiaozhi-server/core/providers/vad/silero.py
+@@ -25,6 +25,7 @@ class VADProvider(VADProviderBase):
+ 
+         threshold = config.get("threshold", "0.5")
+         threshold_low = config.get("threshold_low", "0.2")
++        min_voice_frames = config.get("min_voice_frames", "3")
+         min_silence_duration_ms = config.get("min_silence_duration_ms", "1000")
+ 
+         self.vad_threshold = float(threshold) if threshold else 0.5
+@@ -34,7 +35,9 @@ class VADProvider(VADProviderBase):
+             int(min_silence_duration_ms) if min_silence_duration_ms else 1000
+         )
+ 
+-        self.frame_window_threshold = 3
++        # Five 32 ms frames are kept in the rolling window. Requiring four
++        # positives rejects short/background bursts while adding little delay.
++        self.frame_window_threshold = max(1, min(5, int(min_voice_frames)))
+ 
+     def _init_connection_state(self, conn):
+         """为连接初始化独立的 VAD 状态"""

@@ -1,0 +1,31 @@
+# --- Repos de terceros (3.7 GB): se clonan aparte, ver docs/03 y docs/04 ---
+ESP32-S3-Touch-LCD-1.54/
+xiaozhi-esp32/
+xiaozhi-esp32-server/
+
+# --- SECRETOS: nunca commitear claves reales ---
+# La config real vive dentro del server (gitignoreada por su propio repo).
+# En este repo solo va config/config.yaml.example con placeholders.
+**/.config.yaml
+*.key
+.env
+.env.*
+!config/config.yaml.example
+
+# --- Artefactos de build ---
+build/
+sdkconfig
+sdkconfig.old
+managed_components/
+venv/
+__pycache__/
+*.pyc
+
+# --- Binarios y modelos pesados ---
+*.bin
+!firmware-ota/*.bin
+models/
+tmp/
+
+# --- macOS ---
+.DS_Store

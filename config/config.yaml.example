@@ -1,0 +1,115 @@
+# Configuración de Giddy — servidor local de Charli (Mac M1, 192.168.0.51)
+# Stack 100% local/gratuito: Vosk (ASR es) + Ollama qwen2.5:3b (LLM) + EdgeTTS es-AR (voz)
+
+server:
+  ip: 0.0.0.0
+  port: 8000
+  http_port: 8003
+  websocket: ws://192.168.0.51:8000/xiaozhi/v1/
+  vision_explain: http://192.168.0.51:8003/mcp/vision/explain
+  timezone_offset: -3
+
+log:
+  log_level: INFO
+
+# Comportamiento tipo Alexa: Giddy solo despierta y hace el sonido; después de
+# responder una orden vuelve al modo de espera para no captar conversaciones.
+enable_greeting: false
+single_turn_mode: true
+wakeup_words:
+  - "Giddy"
+  - "giddy"
+
+prompt: |
+  REGLA ABSOLUTA E INVIOLABLE: respondés SIEMPRE y ÚNICAMENTE en español rioplatense.
+  JAMÁS escribas una sola palabra en chino, inglés ni ningún otro idioma, pase lo que pase,
+  aunque no hayas entendido bien lo que te dijeron. Si no entendiste, decí en español
+  "perdón, no te entendí, repetímelo" — pero SIEMPRE en español.
+
+  Sos Giddy, una asistente de voz argentina: cálida, canchera y directa. Nunca digas
+  que sos Xiaozhi ni un modelo de lenguaje: sos Giddy.
+
+  Tus respuestas SE ESCUCHAN por un parlante (no se leen). Por eso:
+  - Cortas: 1 a 3 frases, como en una charla hablada.
+  - Texto plano hablado: NADA de emojis, asteriscos, markdown, listas con viñetas,
+    ni símbolos. Solo palabras que se puedan pronunciar.
+  - Si no sabés algo, decilo sin vueltas. Humor liviano bienvenido.
+
+  Si Charli pregunta cuánta batería tenés, tu nivel de batería o si estás cargando,
+  llamá SIEMPRE a la herramienta self.battery.get_level. Si esa herramienta todavía
+  no está disponible, llamá a self.get_device_status. Contestá el porcentaje real
+  que devuelva la herramienta y si estás cargando, sin inventar el dato.
+
+  Estás charlando con Charli, tu creador.
+
+exit_commands:
+  - "退出"
+  - "关闭"
+  - "chau"
+  - "chau giddy"
+  - "adiós"
+  - "adios"
+  - "hasta luego"
+  - "terminá"
+  - "termina"
+  - "salir"
+
+selected_module:
+  VAD: SileroVAD
+  ASR: GroqASR
+  LLM: OpenRouterLLM
+  TTS: EdgeTTS
+  Memory: mem_local_short
+  Intent: function_call
+
+VAD:
+  SileroVAD:
+    # Prioriza la voz cercana y exige actividad estable para rechazar TV,
+    # conversaciones lejanas y sonidos breves.
+    threshold: 0.75
+    threshold_low: 0.50
+    min_voice_frames: 4
+    min_silence_duration_ms: 600
+
+ASR:
+  # Oido rapido en la nube: Groq Whisper (probado ~0.4s, gran español)
+  # Free tier generoso. Para volver a offline: cambiar selected_module.ASR a VoskASR
+  GroqASR:
+    type: openai
+    model_name: whisper-large-v3-turbo
+    base_url: https://api.groq.com/openai/v1/audio/transcriptions
+    api_key: gsk_TU_CLAVE_GROQ_ACA
+    language: es
+    output_dir: tmp/
+  # Fallback local (sin internet, mas lento e impreciso):
+  VoskASR:
+    type: vosk
+    model_path: models/vosk/vosk-model-small-es-0.42
+    output_dir: tmp/
+
+LLM:
+  # Cerebro principal: OpenRouter (una clave, todos los modelos)
+  # Para cambiar de modelo: editar model_name y reiniciar (./fernanda.sh stop && start)
+  #   deepseek/deepseek-v3.2      -> campeon calidad/precio (~US$0.35/mes)
+  #   anthropic/claude-haiku-4.5  -> el mas rapido, calidad Claude (~US$2/mes)
+  #   anthropic/claude-sonnet-5   -> casi-Opus (~US$4/mes)
+  #   moonshotai/kimi-k3          -> flagship 2.8T de Moonshot (~US$6/mes)
+  #   z-ai/glm-4.7-flash          -> casi gratis ($0.06/$0.40)
+  OpenRouterLLM:
+    type: openai
+    model_name: deepseek/deepseek-v3.2
+    url: https://openrouter.ai/api/v1
+    api_key: sk-or-v1-TU_CLAVE_OPENROUTER_ACA
+  # Fallback 100% local (sin internet): cambiar selected_module.LLM a OllamaLLM
+  OllamaLLM:
+    type: ollama
+    model_name: qwen2.5:3b
+    base_url: http://localhost:11434
+
+TTS:
+  EdgeTTS:
+    type: edge
+    voice: es-AR-ElenaNeural
+    language: español rioplatense de Argentina
+    rate: 20   # +20% velocidad (Elena habla pausado); subir a 30 si sigue lento
+    output_dir: tmp/

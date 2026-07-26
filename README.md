@@ -22,12 +22,14 @@ Decís **"Giddy"** y te responde en español argentino, con una cara de robot qu
 | Carpeta | Qué es |
 |---|---|
 | `docs/` | **Toda la documentación.** Empezá por acá. |
+| `server/` | El servidor completo, con nuestros cambios ya aplicados |
+| `firmware/` | El firmware completo, con nuestros cambios ya aplicados |
 | `avatar/` | Generadores Python de la cara animada + los 22 GIFs listos |
 | `patches/` | Nuestros cambios sobre los repos upstream (firmware y servidor) |
 | `config/` | Plantilla de configuración del servidor (sin claves) |
 | `scripts/` | `giddy.sh` — arrancar/parar el servidor |
 
-**Los repos de terceros no están acá** (pesan 3.7 GB). Se clonan y se les aplican los parches — ver `docs/03` y `docs/04`.
+**Todo el código necesario está en el repo** (`server/` y `firmware/`): clonás y funciona, sin depender del upstream. Los parches en `patches/` quedan como registro de qué cambiamos respecto de los repos originales.
 
 ## Por dónde empezar
 
@@ -37,7 +39,8 @@ Decís **"Giddy"** y te responde en español argentino, con una cara de robot qu
 4. **[docs/04-servidor.md](docs/04-servidor.md)** — el servidor (cerebro, oído, voz)
 5. **[docs/05-ota-sin-cable.md](docs/05-ota-sin-cable.md)** — actualizar **sin enchufar el cable**
 6. **[docs/06-hermes-otra-maquina.md](docs/06-hermes-otra-maquina.md)** — plan para Hermes Agent en la PC con GPU
-7. **[docs/07-versiones.md](docs/07-versiones.md)** — 🔒 versiones pineadas del upstream (leer antes de clonar)
+7. **[docs/07-versiones.md](docs/07-versiones.md)** — 🔒 versiones del upstream de las que partimos
+8. **[docs/08-instalar-en-windows.md](docs/08-instalar-en-windows.md)** — 🪟 **levantar todo en la PC Windows**
 
 ## ⚠️ Sobre las claves API
 

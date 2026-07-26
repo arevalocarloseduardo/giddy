@@ -1,11 +1,13 @@
 # 04 — El servidor de Giddy
 
-Base: [xiaozhi-esp32-server](https://github.com/xinnan-tech/xiaozhi-esp32-server) (despliegue mínimo Python, sin el panel Java) + nuestros parches.
+Base: [xiaozhi-esp32-server](https://github.com/xinnan-tech/xiaozhi-esp32-server) **v0.9.6** (despliegue mínimo Python, sin el panel Java) + nuestros parches.
+
+> 🔒 **La versión está pineada a propósito.** El parche de `patches/` está hecho contra el tag **`v0.9.6`** (commit `f5ed1aa`). Si clonás la rama `main` en vez del tag, el upstream ya habrá cambiado y `git apply` puede fallar. Ver [docs/07-versiones.md](07-versiones.md).
 
 ## Paso 1 — Clonar, parchear, instalar
 
 ```bash
-git clone --depth 1 https://github.com/xinnan-tech/xiaozhi-esp32-server.git
+git clone --depth 1 -b v0.9.6 https://github.com/xinnan-tech/xiaozhi-esp32-server.git
 cd xiaozhi-esp32-server
 git apply ../patches/xiaozhi-esp32-server.patch
 cd main/xiaozhi-server

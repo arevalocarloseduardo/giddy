@@ -37,6 +37,7 @@ Decís **"Giddy"** y te responde en español argentino, con una cara de robot qu
 4. **[docs/04-servidor.md](docs/04-servidor.md)** — el servidor (cerebro, oído, voz)
 5. **[docs/05-ota-sin-cable.md](docs/05-ota-sin-cable.md)** — actualizar **sin enchufar el cable**
 6. **[docs/06-hermes-otra-maquina.md](docs/06-hermes-otra-maquina.md)** — plan para Hermes Agent en la PC con GPU
+7. **[docs/07-versiones.md](docs/07-versiones.md)** — 🔒 versiones pineadas del upstream (leer antes de clonar)
 
 ## ⚠️ Sobre las claves API
 

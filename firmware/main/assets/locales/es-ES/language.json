@@ -40,7 +40,7 @@
         "BATTERY_LOW": "Batería baja",
         "BATTERY_CHARGING": "Cargando",
         "BATTERY_FULL": "Batería llena",
-        "BATTERY_NEED_CHARGE": "Batería baja, por favor cargar",
+        "BATTERY_NEED_CHARGE": "Urgente, cargame que me apago",
         "VOLUME": "Volumen ",
         "MUTED": "Silenciado",
         "MAX_VOLUME": "Volumen máximo",

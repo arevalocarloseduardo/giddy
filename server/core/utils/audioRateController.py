@@ -13,12 +13,13 @@ class AudioRateController:
     解决高并发下的时间累积误差问题
     """
 
-    def __init__(self, frame_duration=60):
+    def __init__(self, frame_duration=60, max_buffered_packets=100):
         """
         Args:
             frame_duration: 单个音频帧时长（毫秒），默认60ms
         """
         self.frame_duration = frame_duration
+        self.max_buffered_packets = max(20, int(max_buffered_packets))
         self.queue = deque()
         self.play_position = 0  # 虚拟播放位置（毫秒）
         self.start_timestamp = None  # 开始时间戳（只读，不修改）
@@ -27,6 +28,8 @@ class AudioRateController:
         self.queue_empty_event = asyncio.Event()  # 队列清空事件
         self.queue_empty_event.set()  # 初始为空状态
         self.queue_has_data_event = asyncio.Event()  # 队列数据事件
+        self.queue_capacity_event = asyncio.Event()
+        self.queue_capacity_event.set()
         self._last_queue_empty_time = 0  # 上次队列清空的时间（秒）
 
     def reset(self):
@@ -42,6 +45,22 @@ class AudioRateController:
         # 相关事件处理
         self.queue_empty_event.set()
         self.queue_has_data_event.clear()
+        self.queue_capacity_event.set()
+
+    async def wait_for_capacity(self, stop_check=None):
+        """Apply backpressure so long audio cannot fill process memory."""
+        while len(self.queue) >= self.max_buffered_packets:
+            if stop_check is not None and stop_check():
+                return False
+            self.queue_capacity_event.clear()
+            if len(self.queue) < self.max_buffered_packets:
+                self.queue_capacity_event.set()
+                break
+            try:
+                await asyncio.wait_for(self.queue_capacity_event.wait(), timeout=0.25)
+            except asyncio.TimeoutError:
+                continue
+        return True
 
     def add_audio(self, opus_packet):
         """添加音频包到队列"""
@@ -103,6 +122,7 @@ class AudioRateController:
                 # 消息类型：立即发送，不占用播放时间
                 _, message_callback = item
                 self.queue.popleft()
+                self.queue_capacity_event.set()
                 try:
                     await message_callback()
                 except Exception as e:
@@ -138,6 +158,7 @@ class AudioRateController:
 
                 # 时间已到，从队列移除并发送
                 self.queue.popleft()
+                self.queue_capacity_event.set()
                 self.play_position += self.frame_duration
                 try:
                     await send_audio_callback(opus_packet)
@@ -181,3 +202,4 @@ class AudioRateController:
         if self.pending_send_task and not self.pending_send_task.done():
             self.pending_send_task.cancel()
             self.logger.bind(tag=TAG).debug("已取消音频发送任务")
+        self.queue_capacity_event.set()

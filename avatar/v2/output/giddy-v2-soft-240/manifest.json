@@ -1,0 +1,50 @@
+{
+  "schema": 1,
+  "avatarVersion": "2.0",
+  "variant": "soft",
+  "display": {
+    "width": 240,
+    "height": 240,
+    "color": "RGB565"
+  },
+  "emotionContract": [
+    "boot",
+    "wake",
+    "dozing",
+    "goodnight",
+    "listening",
+    "speaking",
+    "music",
+    "connecting",
+    "curious",
+    "neutral",
+    "robot_2",
+    "happy",
+    "laughing",
+    "sad",
+    "crying",
+    "angry",
+    "sleepy",
+    "surprised",
+    "shocked",
+    "thinking",
+    "confused",
+    "winking",
+    "loving",
+    "cool",
+    "confident",
+    "embarrassed",
+    "funny",
+    "silly",
+    "kissy",
+    "relaxed",
+    "delicious"
+  ],
+  "principles": [
+    "readable",
+    "interruptible",
+    "restrained",
+    "friendly",
+    "extensible"
+  ]
+}

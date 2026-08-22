@@ -10,8 +10,8 @@ Decís **"Giddy"** y te responde en español argentino, con una cara de robot qu
    [ Placa ESP32-S3 ]  ← wake word local "Giddy" (no manda audio hasta oírlo)
         ↓ WiFi
    [ Servidor propio ]  ← corre en tu máquina
-        ├─ 👂 ASR    Groq Whisper turbo   (~0.4s)
-        ├─ 🧠 LLM    OpenRouter / Ollama  (configurable)
+        ├─ 👂 ASR    Whisper local        (sin API paga)
+        ├─ 🧠 LLM    Hermes Giddy         (memoria + herramientas)
         └─ 🗣️ TTS    EdgeTTS es-AR       (voz argentina)
         ↓
    🔊  Giddy contesta + mueve la cara
@@ -41,6 +41,7 @@ Decís **"Giddy"** y te responde en español argentino, con una cara de robot qu
 6. **[docs/06-hermes-otra-maquina.md](docs/06-hermes-otra-maquina.md)** — plan para Hermes Agent en la PC con GPU
 7. **[docs/07-versiones.md](docs/07-versiones.md)** — 🔒 versiones del upstream de las que partimos
 8. **[docs/08-instalar-en-windows.md](docs/08-instalar-en-windows.md)** — 🪟 **levantar todo en la PC Windows**
+9. **[docs/09-hermes-giddy-local.md](docs/09-hermes-giddy-local.md)** — despliegue local integrado con un Hermes dedicado
 
 ## ⚠️ Sobre las claves API
 
@@ -48,4 +49,14 @@ Decís **"Giddy"** y te responde en español argentino, con una cara de robot qu
 
 En `config/config.yaml.example` están los lugares marcados con `TU_CLAVE_..._ACA`. Al instalar en otra máquina, copiás ese archivo y pegás las claves a mano (ver `docs/04`).
 
-Claves que usa Giddy hoy: **OpenRouter** (cerebro) y **Groq** (oído). Las dos tienen capa gratuita o costo de centavos.
+El despliegue Hermes actual no necesita claves de OpenRouter ni Groq. La clave
+interna entre Giddy y `hermes-giddy` se genera localmente y queda sólo en los
+archivos ignorados por Git. Las configuraciones alternativas del servidor sí
+pueden usar proveedores externos; sus claves deben mantenerse fuera del repo.
+
+## Producto comercial
+
+- [Arquitectura, costos, panel y recuperacion](docs/10-producto-comercial.md)
+- [Pruebas y operacion antes de cada lanzamiento](docs/11-pruebas-y-operacion.md)
+- [Guia de usabilidad y catalogo de frases](docs/12-guia-de-usabilidad.md)
+- [Muestrario para comparar las voces de Giddy](docs/voice-samples/index.html)

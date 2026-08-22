@@ -213,6 +213,17 @@ async def handle_mcp_message(
                     logger.bind(tag=TAG).debug("所有工具已获取，MCP客户端准备就绪")
 
                     # 刷新工具缓存，确保MCP工具被包含在函数列表中
+                    try:
+                        from core.giddy_firmware import deploy_pending_giddy_assets_safely
+
+                        asyncio.create_task(
+                            deploy_pending_giddy_assets_safely(conn, mcp_client)
+                        )
+                    except Exception as exc:
+                        logger.bind(tag=TAG).warning(
+                            f"No se pudo programar la actualizacion de assets: {exc}"
+                        )
+
                     if hasattr(conn, "func_handler") and conn.func_handler:
                         conn.func_handler.tool_manager.refresh_tools()
                         conn.func_handler.current_support_functions()
@@ -276,6 +287,7 @@ async def send_mcp_tools_list_request(conn: "ConnectionHandler"):
         "jsonrpc": "2.0",
         "id": 2,  # mcpToolsListID
         "method": "tools/list",
+        "params": {"withUserTools": True},
     }
     logger.bind(tag=TAG).debug("发送MCP工具列表请求")
     await send_mcp_message(conn, payload)
@@ -287,9 +299,9 @@ async def send_mcp_tools_list_continue_request(conn: "ConnectionHandler", cursor
         "jsonrpc": "2.0",
         "id": 2,  # mcpToolsListID (same ID for continuation)
         "method": "tools/list",
-        "params": {"cursor": cursor},
+        "params": {"cursor": cursor, "withUserTools": True},
     }
-    logger.bind(tag=TAG).info(f"发送带cursor的MCP工具列表请求: {cursor}")
+    logger.bind(tag=TAG).info(f"Siguiente pagina de herramientas MCP: {cursor}")
     await send_mcp_message(conn, payload)
 
 
@@ -306,6 +318,8 @@ async def call_mcp_tool(
     if not await mcp_client.is_ready():
         raise RuntimeError("MCP客户端尚未准备就绪")
 
+    if not mcp_client.has_tool(tool_name):
+        tool_name = sanitize_tool_name(tool_name)
     if not mcp_client.has_tool(tool_name):
         raise ValueError(f"工具 {tool_name} 不存在")
 
@@ -371,14 +385,16 @@ async def call_mcp_tool(
         "params": {"name": actual_name, "arguments": arguments},
     }
 
-    logger.bind(tag=TAG).info(f"发送客户端mcp工具调用请求: {actual_name}，参数: {args}")
+    logger.bind(tag=TAG).info(
+        f"Llamada MCP al dispositivo: {actual_name}, argumentos: {args}"
+    )
     await send_mcp_message(conn, payload)
 
     try:
         # Wait for response or timeout
         raw_result = await asyncio.wait_for(result_future, timeout=timeout)
         logger.bind(tag=TAG).info(
-            f"客户端mcp工具调用 {actual_name} 成功，原始结果: {raw_result}"
+            f"Llamada MCP completada: {actual_name}, resultado: {raw_result}"
         )
 
         if isinstance(raw_result, dict):

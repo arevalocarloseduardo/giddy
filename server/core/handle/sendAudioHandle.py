@@ -1,7 +1,8 @@
 import json
+import re
 import time
 import asyncio
-import opuslib_next
+from core.utils.opus_compat import opuslib_next
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -16,6 +17,13 @@ TAG = __name__
 AUDIO_FRAME_DURATION = 60
 # 预缓冲包数量，直接发送以减少延迟
 PRE_BUFFER_COUNT = 5
+HAN_TEXT = re.compile(r"[\u3400-\u4dbf\u4e00-\u9fff]")
+SPANISH_LANGUAGE_FALLBACK = "No te entendi. Decimelo de nuevo."
+
+
+def _safe_assistant_text(text):
+    value = str(text or "")
+    return SPANISH_LANGUAGE_FALLBACK if HAN_TEXT.search(value) else value
 
 
 async def sendAudioMessage(conn: "ConnectionHandler", sentenceType, audios, text, sentence_id=None):
@@ -252,6 +260,11 @@ async def _send_audio_with_rate_control(
             await _do_send_audio(conn, packet, flow_control)
         else:
             # 动态流控模式：仅添加到队列，由后台循环负责发送
+            has_capacity = await rate_controller.wait_for_capacity(
+                lambda: conn.client_abort
+            )
+            if not has_capacity:
+                return
             rate_controller.add_audio(packet)
 
 
@@ -281,8 +294,17 @@ async def send_tts_message(conn: "ConnectionHandler", state, text=None):
     if text is None and state == "sentence_start":
         return
     message = {"type": "tts", "state": state, "session_id": conn.session_id}
+    tts_emotion = getattr(conn, "tts_emotion", None)
+    active_emotion = (
+        tts_emotion
+        if isinstance(tts_emotion, dict)
+        and tts_emotion.get("sentence_id") == conn.sentence_id
+        else None
+    )
+    if state == "start" and active_emotion:
+        message["emotion"] = active_emotion.get("emotion", "neutral")
     if text is not None:
-        message["text"] = textUtils.check_emoji(text)
+        message["text"] = textUtils.check_emoji(_safe_assistant_text(text))
 
     # TTS播放结束
     if state == "stop":
@@ -307,13 +329,22 @@ async def send_tts_message(conn: "ConnectionHandler", state, text=None):
         if hasattr(conn, "audio_rate_controller") and conn.audio_rate_controller:
             conn.audio_rate_controller.stop_sending()
         conn.clearSpeakStatus()
+        if active_emotion:
+            conn.tts_emotion = None
 
     # 发送消息到客户端
     await conn.websocket.send(json.dumps(message))
 
 
-async def send_stt_message(conn: "ConnectionHandler", text):
+async def send_stt_message(
+    conn: "ConnectionHandler", text, start_tts=True, emotion=None
+):
     """发送 STT 状态消息"""
+    if emotion:
+        conn.tts_emotion = {
+            "sentence_id": conn.sentence_id,
+            "emotion": emotion,
+        }
     end_prompt_str = conn.config.get("end_prompt", {}).get("prompt")
     if end_prompt_str and end_prompt_str == text:
         await send_tts_message(conn, "start")
@@ -338,9 +369,10 @@ async def send_stt_message(conn: "ConnectionHandler", text):
     await conn.websocket.send(
         json.dumps({"type": "stt", "text": stt_text, "session_id": conn.session_id})
     )
-    await send_tts_message(conn, "start")
-    # 发送start消息后客户端状态会处于说话中状态，同步服务端状态
-    conn.client_is_speaking = True
+    if start_tts:
+        await send_tts_message(conn, "start")
+        # 发送start消息后客户端状态会处于说话中状态，同步服务端状态
+        conn.client_is_speaking = True
 
 
 async def send_display_message(conn: "ConnectionHandler", text):

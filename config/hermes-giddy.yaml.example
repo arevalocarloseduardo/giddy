@@ -1,0 +1,177 @@
+# Giddy con Hermes Agent como cerebro.
+# configure-hermes.ps1 reemplaza los dos placeholders al crear server/data/.config.yaml.
+
+server:
+  ip: 0.0.0.0
+  port: 8010
+  http_port: 8003
+  websocket: ws://__GIDDY_LAN_IP__:8010/xiaozhi/v1/
+  vision_explain: http://__GIDDY_LAN_IP__:8003/mcp/vision/explain
+  timezone_offset: -3
+
+log:
+  log_level: INFO
+
+enable_greeting: false
+enable_wakeup_words_response_cache: false
+single_turn_mode: false
+close_connection_no_voice_time: 45
+wakeup_words:
+  - "Giddy"
+  - "giddy"
+
+system_error_response: "Tuve un problema para completar eso. Proba de nuevo en un momento."
+end_prompt:
+  enable: false
+  prompt: ""
+
+prompt: |
+  Sos Giddy, un asistente de voz argentino conectado a Hermes.
+  Responde siempre en espanol rioplatense, con voseo natural.
+  Tu respuesta se escucha por un parlante: usa texto plano, sin Markdown,
+  emojis, listas, enlaces largos ni simbolos que no se puedan pronunciar.
+  Para charla simple, responde en una o dos frases cortas y directas.
+  Sos un asistente personal orientado a resolver pedidos. No ofrezcas historias,
+  chistes, anecdotas, juegos ni dialogos salvo que te los pidan explicitamente.
+  No cierres respuestas proponiendo entretenimiento ni preguntando "te animas".
+  No uses herramientas si ya sabes la respuesta.
+  Para reproducir musica usa siempre play_music: tenes acceso real a YouTube.
+  Nunca niegues esa capacidad ni inventes que no podes acceder a YouTube.
+  Para crear imagenes usa siempre generate_image: Grok Imagine esta conectado
+  y la imagen se muestra directamente en la pantalla del dispositivo.
+  Para clima y temperatura, la ubicacion predeterminada es La Plata.
+  Si el usuario no nombra otra ciudad, usa La Plata sin preguntar su ubicacion.
+  Para pedidos que necesitan datos, memoria, archivos, web o una accion real,
+  usa toda la capacidad de Hermes y completa la tarea antes de responder.
+  Si vas a usar herramientas que pueden demorar, deci primero una confirmacion
+  de tres a seis palabras y segui trabajando; no esperes al final para dar senal.
+  No inventes resultados ni digas que una accion termino sin confirmacion.
+  Si no entendiste el audio, pedi que lo repitan brevemente.
+  Nunca digas que sos Xiaozhi, un modelo, una API ni una interfaz tecnica.
+
+selected_module:
+  VAD: SileroVAD
+  ASR: HermesLocalASR
+  LLM: GiddyHybrid
+  TTS: EdgeTTS
+  Memory: nomem
+  Intent: GiddyIntent
+
+VAD:
+  SileroVAD:
+    threshold: 0.72
+    threshold_low: 0.48
+    min_voice_frames: 3
+    min_silence_duration_ms: 520
+    smart_turn_enabled: true
+    smart_turn_min_silence_ms: 320
+    smart_turn_fallback_ms: 1600
+    smart_turn_check_interval_ms: 360
+    smart_turn_cpu_count: 1
+
+ASR:
+  HermesLocalASR:
+    type: openai
+    model_name: whisper-1
+    base_url: http://127.0.0.1:9000/v1/audio/transcriptions
+    api_key: local-hermes-stt
+    language: es
+    prompt: "Conversacion natural en espanol rioplatense de Argentina. El usuario puede pedir musica, clima, hora, imagenes o controlar el asistente. Transcribi exactamente lo que diga, incluidos nombres propios, artistas y titulos."
+    hotwords: "Giddy musica cancion tema reproducir poner tocar artista titulo clima pronostico temperatura imagen hora agenda WhatsApp La Plata"
+    output_dir: tmp/
+
+LLM:
+  GiddyHybrid:
+    type: hybrid
+    settings_path: data/giddy-product.json
+    power:
+      model_name: giddy
+      url: http://127.0.0.1:8664/v1
+      api_key: __HERMES_API_KEY__
+      session_key: giddy-device-primary
+      max_tokens: 480
+      temperature: 0.3
+      timeout:
+        pool: 2
+        connect: 3
+        write: 10
+        read: 900
+
+TTS:
+  EdgeTTS:
+    type: edge
+    voice: es-AR-ElenaNeural
+    language: espanol rioplatense de Argentina
+    rate: 6
+    volume: 0
+    pitch: 0
+    settings_path: data/giddy-product.json
+    output_dir: tmp/
+
+Intent:
+  GiddyIntent:
+    type: giddy_intent
+    functions:
+      - play_music
+      - get_giddy_weather
+      - generate_image
+
+plugins:
+  get_giddy_weather:
+    default_location: La Plata
+    latitude: -34.9205
+    longitude: -57.9536
+    timezone: America/Argentina/Buenos_Aires
+    cache_seconds: 600
+    timeout_seconds: 4
+  generate_image:
+    docker_container: hermes-giddy
+    timeout_seconds: 120
+    local_fallback_enabled: true
+    local_docker_image: giddy-image-local:latest
+    local_timeout_seconds: 300
+    local_ollama_url: http://127.0.0.1:11434
+    local_ollama_model: qwen3.5:9b
+    local_ollama_keep_alive: 2h
+    max_image_mb: 12
+    preview_size: 480
+    preview_quality: 88
+    cache_generations: 12
+  giddy_assets:
+    enabled: true
+    delivery: ota
+    version: 2.4.15
+    filename: giddy-assets-2.4.15.bin
+  play_music:
+    music_dir: music
+    music_ext:
+      - .mp3
+      - .wav
+      - .p3
+    refresh_time: 300
+    youtube_enabled: true
+    youtube_cache_dir: data/giddy-youtube-cache
+    youtube_max_duration: 480
+    youtube_timeout: 60
+    youtube_cache_files: 10
+    youtube_cache_mb: 384
+    youtube_max_file_mb: 64
+    youtube_default_query: musica para escuchar
+    youtube_aliases:
+      "grupo niche":
+        url: https://www.youtube.com/watch?v=YmQiUg75q84
+        title: "Grupo Niche - Nuestro Sueño"
+      "grupo niche nuestro sueno":
+        url: https://www.youtube.com/watch?v=YmQiUg75q84
+        title: "Grupo Niche - Nuestro Sueño"
+      "grupo niche en nuestro sueno":
+        url: https://www.youtube.com/watch?v=YmQiUg75q84
+        title: "Grupo Niche - Nuestro Sueño"
+      "llamado de emergencia daddy yankee": &llamado_emergencia
+        url: https://www.youtube.com/watch?v=KS8K72jwR70
+        title: "Daddy Yankee - Llamado de Emergencia"
+      "daddy yankee llamado de emergencia": *llamado_emergencia
+      "dadi yankee llamado emergencia": *llamado_emergencia
+      "llamada emergencia baby de daddy junkins": *llamado_emergencia
+
+tool_call_timeout: 150

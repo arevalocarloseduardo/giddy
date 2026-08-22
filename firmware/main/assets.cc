@@ -104,14 +104,21 @@ bool Assets::LoadSrmodelsFromIndex(Assets* assets, cJSON* root) {
         need_delete_root = true;
     }
 
+    // The audio engine keeps the speech model list for its entire lifetime and
+    // deliberately rejects replacement after initialization. Applying the same
+    // assets again must therefore be idempotent; deinitializing this list here
+    // would leave the running engine with a dangling pointer.
+    if (assets->models_list_ != nullptr) {
+        if (need_delete_root) {
+            cJSON_Delete(root);
+        }
+        return true;
+    }
+
     cJSON* srmodels = cJSON_GetObjectItem(root, "srmodels");
     if (cJSON_IsString(srmodels)) {
         std::string srmodels_file = srmodels->valuestring;
         if (assets->GetAssetData(srmodels_file, ptr, size)) {
-            if (assets->models_list_ != nullptr) {
-                esp_srmodel_deinit(assets->models_list_);
-                assets->models_list_ = nullptr;
-            }
             assets->models_list_ = srmodel_load(static_cast<uint8_t*>(ptr));
             if (assets->models_list_ != nullptr) {
                 auto& app = Application::GetInstance();
@@ -138,7 +145,10 @@ bool Assets::LoadSrmodelsFromIndex(Assets* assets, cJSON* root) {
 uint32_t Assets::LvglStrategy::CalculateChecksum(const char* data, uint32_t length) {
     uint32_t checksum = 0;
     for (uint32_t i = 0; i < length; i++) {
-        checksum += data[i];
+        // Asset packages checksum raw bytes. Plain char is signed on some
+        // toolchains, which made the same package validate differently on the
+        // builder and on the device.
+        checksum += static_cast<uint8_t>(data[i]);
     }
     return checksum & 0xFFFF;
 }

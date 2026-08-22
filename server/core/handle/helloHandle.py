@@ -2,6 +2,7 @@ import time
 import json
 import uuid
 import random
+import re
 import asyncio
 from typing import TYPE_CHECKING
 
@@ -31,6 +32,13 @@ WAKEUP_CONFIG = {
         "我在这里，等候您的指令。",
     ],
 }
+WAKEUP_CONFIG["responses"] = [
+    "Aca estoy.",
+    "Te escucho.",
+    "Decime.",
+    "Si, te escucho.",
+]
+HAN_TEXT = re.compile(r"[\u3400-\u4dbf\u4e00-\u9fff]")
 
 # 创建全局的唤醒词配置管理器
 wakeup_words_config = WakeupWordsConfig()
@@ -40,13 +48,17 @@ _wakeup_response_lock = asyncio.Lock()
 
 
 async def handleHelloMessage(conn: "ConnectionHandler", msg_json):
+    from core.giddy_firmware import record_giddy_assets_hello
+
+    record_giddy_assets_hello(conn, msg_json)
     """处理hello消息"""
     audio_params = msg_json.get("audio_params")
     if audio_params:
         format = audio_params.get("format")
         conn.logger.bind(tag=TAG).debug(f"客户端音频格式: {format}")
         conn.audio_format = format
-        conn.welcome_msg["audio_params"] = audio_params
+        # Client parameters describe microphone input. The welcome message describes
+        # server output, so keep its configured sample rate for device playback.
     features = msg_json.get("features")
     if features:
         conn.logger.bind(tag=TAG).debug(f"客户端特性: {features}")
@@ -101,6 +113,11 @@ async def checkWakeupWords(conn: "ConnectionHandler", text):
             "time": 0,
             "text": "我在这里哦！",
         }
+
+    if HAN_TEXT.search(str(response.get("text") or "")):
+        if not _wakeup_response_lock.locked():
+            asyncio.create_task(wakeupWordsResponse(conn))
+        return False
 
     # 获取音频数据
     opus_packets = await audio_to_data(response.get("file_path"), use_cache=False)

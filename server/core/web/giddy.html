@@ -1,0 +1,658 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>Giddy Control</title>
+  <style>
+    :root {
+      --ink: #17211f;
+      --muted: #66716e;
+      --line: #d9dfdc;
+      --paper: #f4f7f5;
+      --surface: #ffffff;
+      --sidebar: #172522;
+      --teal: #087f73;
+      --teal-soft: #dff3ef;
+      --coral: #e45c45;
+      --yellow: #f3ba3e;
+      --green: #1f9d68;
+      --danger: #c84444;
+      --shadow: 0 8px 28px rgba(28, 45, 40, .08);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--paper);
+      color: var(--ink);
+      font-family: Inter, "Segoe UI", Arial, sans-serif;
+      letter-spacing: 0;
+    }
+    button, input, select, textarea { font: inherit; letter-spacing: 0; }
+    button { cursor: pointer; }
+    .app { min-height: 100vh; display: grid; grid-template-columns: 224px minmax(0, 1fr); }
+    .sidebar {
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      padding: 22px 14px;
+      background: var(--sidebar);
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      gap: 26px;
+    }
+    .brand { display: flex; align-items: center; gap: 11px; padding: 0 8px; }
+    .brand-mark {
+      width: 36px;
+      height: 36px;
+      display: grid;
+      place-items: center;
+      border-radius: 8px;
+      background: var(--yellow);
+      color: #1d2926;
+      font-weight: 800;
+      font-size: 20px;
+    }
+    .brand strong { display: block; font-size: 16px; }
+    .brand span { color: #aebbb7; font-size: 11px; }
+    nav { display: grid; gap: 4px; }
+    .nav-button {
+      width: 100%;
+      min-height: 42px;
+      border: 0;
+      border-radius: 6px;
+      padding: 0 12px;
+      background: transparent;
+      color: #bdc8c5;
+      text-align: left;
+      font-weight: 650;
+    }
+    .nav-button:hover { background: rgba(255,255,255,.06); color: #fff; }
+    .nav-button.active { background: #eef8f5; color: #123d36; }
+    .sidebar-foot { margin-top: auto; padding: 12px 8px; border-top: 1px solid rgba(255,255,255,.1); }
+    .connection { display: flex; align-items: center; gap: 8px; color: #c8d1cf; font-size: 12px; }
+    .dot { width: 9px; height: 9px; border-radius: 50%; background: #8a9491; flex: 0 0 auto; }
+    .dot.ok { background: #55d79e; box-shadow: 0 0 0 3px rgba(85,215,158,.13); }
+    .main { min-width: 0; }
+    header {
+      min-height: 76px;
+      padding: 16px clamp(18px, 3vw, 40px);
+      border-bottom: 1px solid var(--line);
+      background: rgba(255,255,255,.86);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      backdrop-filter: blur(12px);
+    }
+    .page-title h1 { margin: 0; font-size: 22px; line-height: 1.15; }
+    .page-title p { margin: 5px 0 0; color: var(--muted); font-size: 13px; }
+    .header-actions { display: flex; align-items: center; gap: 10px; }
+    .button {
+      min-height: 38px;
+      padding: 0 15px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--surface);
+      color: var(--ink);
+      font-weight: 700;
+    }
+    .button:hover { border-color: #aeb9b5; }
+    .button.primary { border-color: var(--teal); background: var(--teal); color: #fff; }
+    .button.primary:hover { background: #066e64; }
+    .button:disabled { opacity: .55; cursor: wait; }
+    .content { padding: 26px clamp(18px, 3vw, 40px) 54px; max-width: 1320px; margin: 0 auto; }
+    .view { display: none; }
+    .view.active { display: block; }
+    .grid { display: grid; gap: 16px; }
+    .metrics { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .two-col { grid-template-columns: minmax(0, 1.25fr) minmax(300px, .75fr); }
+    .card {
+      min-width: 0;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+    .metric { min-height: 118px; padding: 18px; }
+    .metric-label { color: var(--muted); font-size: 12px; font-weight: 700; }
+    .metric-value { margin-top: 10px; font-size: 28px; line-height: 1; font-weight: 800; }
+    .metric-note { margin-top: 10px; color: var(--muted); font-size: 12px; }
+    .accent-teal { border-top: 4px solid var(--teal); }
+    .accent-coral { border-top: 4px solid var(--coral); }
+    .accent-yellow { border-top: 4px solid var(--yellow); }
+    .accent-green { border-top: 4px solid var(--green); }
+    .section { margin-top: 22px; }
+    .section-title { display: flex; align-items: end; justify-content: space-between; gap: 16px; margin: 0 0 11px; }
+    .section-title h2 { margin: 0; font-size: 16px; }
+    .section-title span { color: var(--muted); font-size: 12px; }
+    .card-body { padding: 20px; }
+    .service-list { display: grid; }
+    .service-row { min-height: 52px; display: flex; align-items: center; justify-content: space-between; gap: 16px; border-bottom: 1px solid #edf0ee; }
+    .service-row:last-child { border-bottom: 0; }
+    .service-name { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 13px; }
+    .badge { padding: 4px 8px; border-radius: 999px; background: #edf0ee; color: var(--muted); font-size: 11px; font-weight: 800; }
+    .badge.ok { background: #ddf5e9; color: #146b48; }
+    .badge.warn { background: #fff0dc; color: #8a4e08; }
+    .action-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    .action-chip { min-height: 72px; padding: 14px; border: 1px solid var(--line); border-radius: 7px; background: #fbfcfb; }
+    .action-chip strong { display: block; font-size: 13px; }
+    .action-chip span { display: block; margin-top: 6px; color: var(--muted); font-size: 11px; line-height: 1.35; }
+    .segmented { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; padding: 4px; border: 1px solid var(--line); border-radius: 8px; background: #edf1ef; }
+    .segment { min-height: 42px; border: 0; border-radius: 5px; background: transparent; color: var(--muted); font-weight: 800; }
+    .segment.active { background: #fff; color: var(--teal); box-shadow: 0 2px 7px rgba(20,50,44,.08); }
+    .mode-copy { margin: 16px 0 0; min-height: 42px; color: var(--muted); font-size: 13px; line-height: 1.55; }
+    .route-diagram { margin-top: 18px; display: grid; grid-template-columns: 1fr 32px 1fr 32px 1fr; align-items: center; gap: 8px; }
+    .route-node { min-height: 92px; padding: 14px; border: 1px solid var(--line); border-radius: 7px; background: #fbfcfb; }
+    .route-node.instant { border-left: 4px solid var(--yellow); }
+    .route-node.local { border-left: 4px solid var(--teal); }
+    .route-node.power { border-left: 4px solid var(--coral); }
+    .route-node strong { display: block; font-size: 13px; }
+    .route-node span { display: block; color: var(--muted); margin-top: 8px; font-size: 11px; line-height: 1.45; }
+    .route-arrow { text-align: center; color: var(--muted); font-weight: 800; }
+    .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+    .field { min-width: 0; }
+    .field.full { grid-column: 1 / -1; }
+    label { display: block; margin-bottom: 6px; font-size: 12px; font-weight: 750; }
+    input, select, textarea {
+      width: 100%;
+      min-height: 40px;
+      padding: 9px 11px;
+      border: 1px solid #cfd7d3;
+      border-radius: 6px;
+      background: #fff;
+      color: var(--ink);
+      outline: none;
+    }
+    textarea { min-height: 90px; resize: vertical; line-height: 1.4; }
+    input:focus, select:focus, textarea:focus { border-color: var(--teal); box-shadow: 0 0 0 3px rgba(8,127,115,.11); }
+    input[type="range"] { padding: 0; border: 0; box-shadow: none; accent-color: var(--teal); }
+    .range-row { display: grid; grid-template-columns: 1fr 52px; align-items: center; gap: 12px; }
+    .range-value { height: 34px; display: grid; place-items: center; border-radius: 6px; background: var(--teal-soft); color: #08665e; font-weight: 800; font-size: 12px; }
+    .helper { margin-top: 6px; color: var(--muted); font-size: 11px; line-height: 1.4; }
+    .tester { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+    .decision { min-height: 48px; margin-top: 12px; padding: 12px; border-radius: 6px; background: #edf1ef; color: var(--muted); font-size: 12px; display: flex; align-items: center; }
+    .decision.instant { background: #fff5d7; color: #72520c; }
+    .decision.local { background: var(--teal-soft); color: #075d55; }
+    .decision.power { background: #ffebe7; color: #963d2e; }
+    .switch-list { display: grid; }
+    .switch-row { min-height: 58px; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 18px; border-bottom: 1px solid #edf0ee; }
+    .switch-row:last-child { border-bottom: 0; }
+    .switch-copy strong { display: block; font-size: 13px; }
+    .switch-copy span { display: block; margin-top: 4px; color: var(--muted); font-size: 11px; }
+    .switch { position: relative; display: block; width: 44px; height: 24px; margin: 0; }
+    .switch input { position: absolute; width: 1px; height: 1px; min-height: 0; margin: 0; opacity: 0; }
+    .switch-track { position: absolute; inset: 0; border-radius: 999px; background: #c8d0cd; transition: background .16s ease; }
+    .switch-track::after { content: ''; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.22); transition: transform .16s ease; }
+    .switch input:checked + .switch-track { background: var(--teal); }
+    .switch input:checked + .switch-track::after { transform: translateX(20px); }
+    .switch input:focus-visible + .switch-track { outline: 3px solid rgba(8,127,115,.18); outline-offset: 2px; }
+    .instant-editor { display: grid; }
+    .instant-row { min-width: 0; padding: 15px 0; display: grid; grid-template-columns: minmax(220px, .85fr) minmax(260px, 1.15fr) 38px; align-items: end; gap: 12px; border-bottom: 1px solid #edf0ee; }
+    .instant-row:first-child { padding-top: 0; }
+    .instant-row:last-child { padding-bottom: 0; border-bottom: 0; }
+    .icon-button { width: 38px; height: 40px; padding: 0; border: 1px solid var(--line); border-radius: 6px; background: #fff; color: var(--muted); font-size: 22px; line-height: 1; }
+    .icon-button:hover { border-color: #d69b9b; color: var(--danger); background: #fff7f7; }
+    .quick-editor { display: grid; gap: 12px; }
+    .quick-row { padding: 15px; border: 1px solid var(--line); border-radius: 7px; display: grid; grid-template-columns: 180px minmax(0, 1fr); gap: 12px; background: #fbfcfb; }
+    .quick-row textarea { min-height: 66px; }
+    .device-facts { display: grid; gap: 0; }
+    .fact { min-height: 50px; display: grid; grid-template-columns: 150px minmax(0,1fr); align-items: center; gap: 14px; border-bottom: 1px solid #edf0ee; font-size: 12px; }
+    .fact:last-child { border-bottom: 0; }
+    .fact span { color: var(--muted); font-weight: 700; }
+    .fact code { overflow-wrap: anywhere; color: var(--ink); }
+    .auth {
+      position: fixed;
+      inset: 0;
+      z-index: 50;
+      display: none;
+      place-items: center;
+      padding: 20px;
+      background: rgba(18, 31, 28, .82);
+      backdrop-filter: blur(8px);
+    }
+    .auth.visible { display: grid; }
+    .auth-box { width: min(430px, 100%); padding: 24px; border-radius: 8px; background: #fff; box-shadow: 0 22px 70px rgba(0,0,0,.28); }
+    .auth-box h2 { margin: 0; font-size: 20px; }
+    .auth-box p { margin: 8px 0 18px; color: var(--muted); font-size: 13px; line-height: 1.5; }
+    .auth-actions { margin-top: 10px; display: flex; justify-content: flex-end; }
+    .toast { position: fixed; right: 22px; bottom: 22px; z-index: 60; max-width: min(380px, calc(100vw - 40px)); padding: 12px 15px; border-radius: 6px; background: var(--ink); color: #fff; font-size: 12px; box-shadow: var(--shadow); opacity: 0; transform: translateY(10px); pointer-events: none; transition: .2s ease; }
+    .toast.visible { opacity: 1; transform: translateY(0); }
+    .toast.error { background: var(--danger); }
+    @media (max-width: 920px) {
+      .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .two-col { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 700px) {
+      .app { display: block; padding-bottom: 66px; }
+      .sidebar { position: fixed; top: auto; bottom: 0; left: 0; right: 0; z-index: 30; width: auto; height: 62px; padding: 6px; display: block; border-top: 1px solid rgba(255,255,255,.12); }
+      .brand, .sidebar-foot { display: none; }
+      nav { height: 100%; display: grid; grid-template-columns: repeat(5, 1fr); gap: 3px; }
+      .nav-button { min-width: 0; min-height: 48px; padding: 4px; text-align: center; font-size: 10px; overflow-wrap: anywhere; }
+      header { min-height: 68px; padding: 12px 16px; }
+      .page-title h1 { font-size: 18px; }
+      .page-title p { display: none; }
+      .content { padding: 18px 14px 32px; }
+      .header-actions .button:not(.primary) { display: none; }
+      .metrics, .form-grid, .action-grid { grid-template-columns: 1fr; }
+      .quick-row, .instant-row { grid-template-columns: 1fr; }
+      .instant-row .icon-button { justify-self: end; }
+      .route-diagram { grid-template-columns: 1fr; }
+      .route-arrow { transform: rotate(90deg); }
+      .fact { grid-template-columns: 1fr; gap: 4px; padding: 10px 0; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand"><div class="brand-mark">G</div><div><strong>Giddy</strong><span>Control diario</span></div></div>
+      <nav>
+        <button class="nav-button active" data-view="home">Inicio</button>
+        <button class="nav-button" data-view="intelligence">Inteligencia</button>
+        <button class="nav-button" data-view="voice">Voz</button>
+        <button class="nav-button" data-view="actions">Acciones</button>
+        <button class="nav-button" data-view="device">Dispositivo</button>
+      </nav>
+      <div class="sidebar-foot"><div class="connection"><span class="dot" id="globalDot"></span><span id="globalState">Comprobando servicios</span></div></div>
+    </aside>
+    <main class="main">
+      <header>
+        <div class="page-title"><h1 id="pageHeading">Inicio</h1><p id="pageSubheading">Estado operativo y uso de las ultimas 24 horas</p></div>
+        <div class="header-actions"><button class="button" id="refreshButton">Actualizar</button><button class="button primary" id="saveButton">Guardar cambios</button></div>
+      </header>
+      <div class="content">
+        <section class="view active" id="view-home">
+          <div class="grid metrics">
+            <article class="card metric accent-green"><div class="metric-label">ESTADO</div><div class="metric-value" id="metricStatus">...</div><div class="metric-note" id="metricStatusNote">Comprobando</div></article>
+            <article class="card metric accent-yellow"><div class="metric-label">RESPUESTAS INMEDIATAS</div><div class="metric-value" id="metricInstant">0%</div><div class="metric-note">Sin esperar un modelo</div></article>
+            <article class="card metric accent-teal"><div class="metric-label">SIN COSTO DE API</div><div class="metric-value" id="metricLocal">0%</div><div class="metric-note">Reflejos e inteligencia local</div></article>
+            <article class="card metric accent-coral"><div class="metric-label">VOZ REUTILIZADA</div><div class="metric-value" id="metricVoiceCache">0%</div><div class="metric-note">Audio listo en caché</div></article>
+          </div>
+          <div class="section grid two-col">
+            <div>
+              <div class="section-title"><h2>Servicios</h2><span>Actualizacion automatica</span></div>
+              <article class="card card-body"><div class="service-list" id="serviceList"></div></article>
+            </div>
+            <div>
+              <div class="section-title"><h2>Accesos rapidos</h2><span>Pantalla de Giddy</span></div>
+              <article class="card card-body"><div class="action-grid" id="actionPreview"></div></article>
+            </div>
+          </div>
+        </section>
+
+        <section class="view" id="view-intelligence">
+          <div class="grid two-col">
+            <article class="card card-body">
+              <div class="section-title"><h2>Modo de inteligencia</h2><span id="modeLabel">Equilibrado</span></div>
+              <div class="segmented" id="modeControl">
+                <button class="segment" data-mode="eco">Ahorro</button>
+                <button class="segment active" data-mode="balanced">Equilibrado</button>
+                <button class="segment" data-mode="max">Maxima calidad</button>
+              </div>
+              <p class="mode-copy" id="modeCopy"></p>
+              <div class="route-diagram">
+                <div class="route-node instant"><strong>Reflejo inmediato</strong><span>0 tokens</span><span>Saludos, hora, fecha y frases conocidas.</span></div>
+                <div class="route-arrow">&rarr;</div>
+                <div class="route-node local"><strong>Conversación local</strong><span id="localModelName">Qwen 3.5 9B</span><span>Charla, lenguaje y respuestas breves.</span></div>
+                <div class="route-arrow">&rarr;</div>
+                <div class="route-node power"><strong>Hermes potente</strong><span>Acciones, memoria, informacion actual, creacion y razonamiento.</span></div>
+              </div>
+            </article>
+            <article class="card card-body">
+              <div class="section-title"><h2>Probar enrutamiento</h2><span>Sin ejecutar la consulta</span></div>
+              <div class="tester"><input id="routeInput" placeholder="Ejemplo: agendame una reunion mañana"><button class="button" id="routeButton">Evaluar</button></div>
+              <div class="decision" id="routeDecision">Escribi una consulta para ver que inteligencia usaria Giddy.</div>
+            </article>
+          </div>
+          <div class="section">
+            <div class="section-title"><h2>Velocidad de conversación</h2><span>Control inmediato</span></div>
+            <div class="grid two-col">
+              <article class="card card-body"><div class="switch-list">
+                <div class="switch-row"><div class="switch-copy"><strong>Respuestas instantáneas</strong><span>Frases conocidas, hora y fecha</span></div><label class="switch"><input id="instantEnabled" type="checkbox"><span class="switch-track"></span></label></div>
+                <div class="switch-row"><div class="switch-copy"><strong>Aviso al pensar</strong><span>Habla antes de iniciar un trabajo largo</span></div><label class="switch"><input id="thinkingCueEnabled" type="checkbox"><span class="switch-track"></span></label></div>
+                <div class="switch-row"><div class="switch-copy"><strong>Caché de voz</strong><span>Reutiliza solo frases públicas y seguras</span></div><label class="switch"><input id="voiceCacheEnabled" type="checkbox"><span class="switch-track"></span></label></div>
+              </div></article>
+              <article class="card card-body"><div class="form-grid">
+                <div class="field full"><label for="localCue">Frase de charla</label><input id="localCue" maxlength="40"></div>
+                <div class="field full"><label for="thinkingCue">Frase al pensar</label><input id="thinkingCue" maxlength="80"></div>
+                <div class="field full"><label for="timeZone">Zona horaria</label><input id="timeZone" maxlength="64"></div>
+              </div></article>
+            </div>
+          </div>
+          <div class="section">
+            <div class="section-title"><h2>Respuestas instantáneas</h2><button class="button" id="addInstantButton" type="button">+ Respuesta</button></div>
+            <article class="card card-body"><div class="instant-editor" id="instantEditor"></div></article>
+          </div>
+          <div class="section">
+            <div class="section-title"><h2>Limites de consumo</h2><span>Se aplican en la proxima conversacion</span></div>
+            <article class="card card-body"><div class="form-grid">
+              <div class="field"><label for="localMax">Respuesta local maxima</label><input id="localMax" type="number" min="32" max="180"><div class="helper">Tokens por respuesta cotidiana.</div></div>
+              <div class="field"><label for="powerMax">Respuesta Hermes maxima</label><input id="powerMax" type="number" min="120" max="1000"><div class="helper">Hermes puede usar herramientas aunque la respuesta hablada sea breve.</div></div>
+              <div class="field"><label for="localContext">Contexto local</label><input id="localContext" type="number" min="800" max="8000"><div class="helper">Caracteres recientes enviados al modelo local.</div></div>
+              <div class="field"><label for="powerContext">Contexto Hermes</label><input id="powerContext" type="number" min="2000" max="16000"><div class="helper">La memoria persistente de Hermes queda separada de este limite.</div></div>
+            </div></article>
+          </div>
+        </section>
+
+        <section class="view" id="view-voice">
+          <div class="grid two-col">
+            <article class="card card-body">
+              <div class="section-title"><h2>Voz principal</h2><span>Cambio inmediato</span></div>
+              <div class="form-grid">
+                <div class="field full"><label for="voiceProfile">Personalidad</label><select id="voiceProfile"><option value="robot">Robot</option><option value="young">Joven</option><option value="natural">Natural</option></select></div>
+                <div class="field full"><label for="voiceSelect">Voz</label><select id="voiceSelect"><option value="es-UY-ValentinaNeural">Valentina, Uruguay</option><option value="es-AR-ElenaNeural">Elena, Argentina</option><option value="es-MX-DaliaNeural">Dalia, Mexico</option><option value="es-AR-TomasNeural">Tomas, Argentina</option></select></div>
+                <div class="field full"><label for="voiceRate">Velocidad</label><div class="range-row"><input id="voiceRate" type="range" min="-10" max="40" step="1"><div class="range-value" id="voiceRateValue">+0%</div></div></div>
+                <div class="field full"><label for="voicePitch">Tono</label><div class="range-row"><input id="voicePitch" type="range" min="-50" max="50" step="1"><div class="range-value" id="voicePitchValue">+0 Hz</div></div></div>
+                <div class="field full"><label for="voiceSample">Frase de prueba</label><input id="voiceSample" value="Hola, soy Giddy. Estoy listo para ayudarte con tu dia."></div>
+              </div>
+              <div style="margin-top:14px"><button class="button" id="voicePreviewButton">Escuchar prueba</button></div>
+            </article>
+            <article class="card card-body">
+              <div class="section-title"><h2>Comportamiento hablado</h2><span>Optimizado</span></div>
+              <div class="service-list">
+                <div class="service-row"><div class="service-name"><span class="dot ok"></span>Respuestas cotidianas</div><span class="badge ok">1 o 2 frases</span></div>
+                <div class="service-row"><div class="service-name"><span class="dot ok"></span>Trabajo prolongado</div><span class="badge ok">Aviso temprano</span></div>
+                <div class="service-row"><div class="service-name"><span class="dot ok"></span>Texto para parlante</div><span class="badge ok">Sin markdown</span></div>
+                <div class="service-row"><div class="service-name"><span class="dot ok"></span>Interrupcion</div><span class="badge ok">Activa</span></div>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <section class="view" id="view-actions">
+          <div class="section-title"><h2>Acciones de la pantalla</h2><span>Hasta seis accesos directos</span></div>
+          <article class="card card-body"><div class="quick-editor" id="quickEditor"></div></article>
+        </section>
+
+        <section class="view" id="view-device">
+          <div class="grid two-col">
+            <article class="card card-body">
+              <div class="section-title"><h2>Conectividad</h2><span>Red local</span></div>
+              <div class="device-facts">
+                <div class="fact"><span>Asistente</span><code id="deviceName">Giddy</code></div>
+                <div class="fact"><span>WebSocket</span><code id="deviceWs">...</code></div>
+                <div class="fact"><span>Actualizaciones</span><code id="deviceOta">/xiaozhi/ota/</code></div>
+                <div class="fact"><span>Modelo local</span><code id="deviceModel">qwen3.5:9b</code></div>
+              </div>
+            </article>
+            <article class="card card-body">
+              <div class="section-title"><h2>Preparacion</h2><span>Producto</span></div>
+              <div class="service-list">
+                <div class="service-row"><div class="service-name"><span class="dot ok"></span>Servidor Giddy</div><span class="badge ok">Automatico</span></div>
+                <div class="service-row"><div class="service-name"><span class="dot ok"></span>Respaldo Hermes</div><span class="badge ok">Automatico</span></div>
+                <div class="service-row"><div class="service-name"><span class="dot ok"></span>Modelo precalentado</div><span class="badge ok">2 horas</span></div>
+                <div class="service-row"><div class="service-name"><span class="dot" id="firmwareDot"></span>Firmware tactil</div><span class="badge warn">Requiere cable</span></div>
+              </div>
+            </article>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <div class="auth" id="authDialog"><div class="auth-box"><h2>Acceso a Giddy</h2><p>Ingresa el codigo de configuracion de este dispositivo.</p><label for="tokenInput">Codigo</label><input id="tokenInput" type="password" autocomplete="off"><div class="auth-actions"><button class="button primary" id="tokenButton">Entrar</button></div></div></div>
+  <div class="toast" id="toast"></div>
+  <script>
+    const state = { token: '', config: null, status: null, dirty: false };
+    const pageMeta = {
+      home: ['Inicio', 'Estado operativo y uso de las ultimas 24 horas'],
+      intelligence: ['Inteligencia', 'Costo, calidad y enrutamiento de cada pedido'],
+      voice: ['Voz', 'Identidad y ritmo de la conversacion'],
+      actions: ['Acciones', 'Atajos disponibles en la pantalla tactil'],
+      device: ['Dispositivo', 'Conexion, servicios y preparacion']
+    };
+    const modeCopy = {
+      eco: 'Los reflejos salen primero. El modelo local resuelve casi toda la charla y Hermes entra solo ante acciones, datos actuales, archivos o trabajo complejo.',
+      balanced: 'Los reflejos salen primero. La charla cotidiana queda en casa y Hermes toma los pedidos que necesitan memoria, herramientas o más razonamiento.',
+      max: 'Los reflejos salen primero. Hermes responde el resto, salvo la conversación muy breve que queda local para mantener velocidad.'
+    };
+    const modeNames = { eco: 'Ahorro', balanced: 'Equilibrado', max: 'Maxima calidad' };
+    const serviceNames = { giddy: 'Servidor Giddy', local: 'Inteligencia local', hermes: 'Hermes potente', speech: 'Reconocimiento de voz' };
+    const voiceProfiles = {
+      robot: { voice: 'es-AR-TomasNeural', rate: 5, pitch: 8 },
+      young: { voice: 'es-AR-TomasNeural', rate: 10, pitch: 28 },
+      natural: { voice: 'es-AR-ElenaNeural', rate: 6, pitch: 0 }
+    };
+
+    function escapeHtml(value) {
+      return String(value ?? '').replace(/[&<>'"]/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char]));
+    }
+    function toast(message, error = false) {
+      const el = document.getElementById('toast');
+      el.textContent = message;
+      el.className = `toast visible${error ? ' error' : ''}`;
+      clearTimeout(toast.timer);
+      toast.timer = setTimeout(() => el.className = 'toast', 2800);
+    }
+    async function api(path, options = {}) {
+      const headers = { ...(options.headers || {}), Authorization: `Bearer ${state.token}` };
+      if (options.body && !headers['Content-Type']) headers['Content-Type'] = 'application/json';
+      const response = await fetch(path, { ...options, headers });
+      if (response.status === 401) {
+        document.getElementById('authDialog').classList.add('visible');
+        throw new Error('Codigo de acceso invalido');
+      }
+      if (!response.ok) throw new Error(await response.text() || `Error ${response.status}`);
+      return response;
+    }
+    async function load() {
+      try {
+        const [configResponse, statusResponse] = await Promise.all([api('/giddy/api/config'), api('/giddy/api/status')]);
+        state.config = await configResponse.json();
+        state.status = await statusResponse.json();
+        state.dirty = false;
+        renderAll();
+        document.getElementById('authDialog').classList.remove('visible');
+      } catch (error) {
+        if (!state.token) document.getElementById('authDialog').classList.add('visible');
+        else toast(error.message, true);
+      }
+    }
+    async function refreshStatus(showToast = false) {
+      try {
+        state.status = await (await api('/giddy/api/status')).json();
+        renderStatus();
+        if (showToast) toast('Estado actualizado');
+      } catch (error) { if (showToast) toast(error.message, true); }
+    }
+    function setMode(mode) {
+      state.config.mode = mode;
+      document.querySelectorAll('.segment').forEach(button => button.classList.toggle('active', button.dataset.mode === mode));
+      document.getElementById('modeLabel').textContent = modeNames[mode];
+      document.getElementById('modeCopy').textContent = modeCopy[mode];
+      state.dirty = true;
+    }
+    function renderAll() {
+      const config = state.config;
+      setMode(config.mode);
+      state.dirty = false;
+      document.getElementById('localModelName').textContent = config.routing.local_model;
+      document.getElementById('localMax').value = config.routing.local_max_tokens;
+      document.getElementById('powerMax').value = config.routing.power_max_tokens;
+      document.getElementById('localContext').value = config.routing.local_context_chars;
+      document.getElementById('powerContext').value = config.routing.power_context_chars;
+      document.getElementById('instantEnabled').checked = config.experience.instant_enabled;
+      document.getElementById('thinkingCueEnabled').checked = config.experience.thinking_cue_enabled;
+      document.getElementById('voiceCacheEnabled').checked = config.experience.voice_cache_enabled;
+      document.getElementById('localCue').value = config.experience.local_cue;
+      document.getElementById('thinkingCue').value = config.experience.thinking_cue;
+      document.getElementById('timeZone').value = config.experience.time_zone;
+      document.getElementById('voiceProfile').value = config.voice.profile || 'natural';
+      document.getElementById('voiceSelect').value = config.voice.voice;
+      document.getElementById('voiceRate').value = config.voice.rate;
+      document.getElementById('voiceRateValue').textContent = `${config.voice.rate >= 0 ? '+' : ''}${config.voice.rate}%`;
+      document.getElementById('voicePitch').value = config.voice.pitch || 0;
+      document.getElementById('voicePitchValue').textContent = `${config.voice.pitch >= 0 ? '+' : ''}${config.voice.pitch || 0} Hz`;
+      document.getElementById('deviceName').textContent = config.assistant_name;
+      document.getElementById('deviceModel').textContent = config.routing.local_model;
+      renderInstantResponses();
+      renderActions();
+      renderStatus();
+    }
+    function renderInstantResponses() {
+      const editor = document.getElementById('instantEditor');
+      const responses = state.config.experience.instant_responses || [];
+      editor.innerHTML = responses.map((item, index) => `<div class="instant-row" data-index="${index}"><div class="field"><label>Se activa con</label><input class="instant-triggers" maxlength="720" value="${escapeHtml((item.triggers || []).join(', '))}"></div><div class="field"><label>Giddy responde</label><input class="instant-response" maxlength="180" value="${escapeHtml(item.response)}"></div><button class="icon-button remove-instant" type="button" title="Eliminar respuesta" aria-label="Eliminar respuesta">&times;</button></div>`).join('');
+      editor.querySelectorAll('input').forEach(element => element.addEventListener('input', () => state.dirty = true));
+      editor.querySelectorAll('.remove-instant').forEach(button => button.addEventListener('click', () => {
+        const row = button.closest('.instant-row');
+        state.config.experience.instant_responses.splice(Number(row.dataset.index), 1);
+        state.dirty = true;
+        renderInstantResponses();
+      }));
+      document.getElementById('addInstantButton').disabled = responses.length >= 30;
+    }
+    function addInstantResponse() {
+      collectInstantResponses(false);
+      if (state.config.experience.instant_responses.length >= 30) return;
+      state.config.experience.instant_responses.push({ id: `instant-${Date.now()}`, triggers: [''], response: '' });
+      state.dirty = true;
+      renderInstantResponses();
+      document.querySelector('.instant-row:last-child .instant-triggers')?.focus();
+    }
+    function collectInstantResponses(requireComplete = true) {
+      const responses = [];
+      document.querySelectorAll('.instant-row').forEach((row, index) => {
+        const current = state.config.experience.instant_responses[index] || {};
+        const triggers = row.querySelector('.instant-triggers').value.split(',').map(value => value.trim()).filter(Boolean).slice(0, 12);
+        const response = row.querySelector('.instant-response').value.trim();
+        if (requireComplete && (!triggers.length || !response)) throw new Error('Completa o elimina la respuesta instantánea vacía');
+        responses.push({ id: current.id || `instant-${index + 1}`, triggers, response });
+      });
+      state.config.experience.instant_responses = responses;
+    }
+    function renderActions() {
+      const preview = document.getElementById('actionPreview');
+      preview.innerHTML = state.config.quick_actions.slice(0, 4).map(action => `<div class="action-chip"><strong>${escapeHtml(action.label)}</strong><span>${escapeHtml(action.prompt)}</span></div>`).join('');
+      const editor = document.getElementById('quickEditor');
+      editor.innerHTML = state.config.quick_actions.map((action, index) => `<div class="quick-row" data-index="${index}"><div class="field"><label>Nombre</label><input class="quick-label" maxlength="22" value="${escapeHtml(action.label)}"></div><div class="field"><label>Pedido a Giddy</label><textarea class="quick-prompt" maxlength="400">${escapeHtml(action.prompt)}</textarea></div></div>`).join('');
+      editor.querySelectorAll('input,textarea').forEach(element => element.addEventListener('input', () => state.dirty = true));
+    }
+    function renderStatus() {
+      if (!state.status) return;
+      const services = state.status.services || {};
+      const allOk = Object.values(services).every(Boolean);
+      document.getElementById('globalDot').classList.toggle('ok', allOk);
+      document.getElementById('globalState').textContent = allOk ? 'Todos los servicios activos' : 'Hay un servicio que revisar';
+      document.getElementById('metricStatus').textContent = allOk ? 'Listo' : 'Atencion';
+      document.getElementById('metricStatusNote').textContent = allOk ? 'Giddy puede conversar y actuar' : 'El respaldo automatico sigue activo';
+      const metrics = state.status.metrics || {};
+      document.getElementById('metricInstant').textContent = `${metrics.instant_share || 0}%`;
+      document.getElementById('metricLocal').textContent = `${metrics.local_share || 0}%`;
+      document.getElementById('metricVoiceCache').textContent = `${metrics.voice_cache_hit_share || 0}%`;
+      document.getElementById('serviceList').innerHTML = Object.entries(serviceNames).map(([key, name]) => {
+        const ok = Boolean(services[key]);
+        return `<div class="service-row"><div class="service-name"><span class="dot ${ok ? 'ok' : ''}"></span>${name}</div><span class="badge ${ok ? 'ok' : 'warn'}">${ok ? 'Activo' : 'Revisar'}</span></div>`;
+      }).join('');
+      document.getElementById('deviceWs').textContent = state.status.endpoints?.websocket || 'No configurado';
+      document.getElementById('deviceOta').textContent = state.status.endpoints?.ota || '/xiaozhi/ota/';
+    }
+    function collectConfig() {
+      const routing = state.config.routing;
+      routing.local_max_tokens = Number(document.getElementById('localMax').value);
+      routing.power_max_tokens = Number(document.getElementById('powerMax').value);
+      routing.local_context_chars = Number(document.getElementById('localContext').value);
+      routing.power_context_chars = Number(document.getElementById('powerContext').value);
+      state.config.experience.instant_enabled = document.getElementById('instantEnabled').checked;
+      state.config.experience.thinking_cue_enabled = document.getElementById('thinkingCueEnabled').checked;
+      state.config.experience.voice_cache_enabled = document.getElementById('voiceCacheEnabled').checked;
+      state.config.experience.local_cue = document.getElementById('localCue').value.trim();
+      state.config.experience.thinking_cue = document.getElementById('thinkingCue').value.trim();
+      state.config.experience.time_zone = document.getElementById('timeZone').value.trim();
+      collectInstantResponses(true);
+      state.config.voice.profile = document.getElementById('voiceProfile').value;
+      state.config.voice.voice = document.getElementById('voiceSelect').value;
+      state.config.voice.rate = Number(document.getElementById('voiceRate').value);
+      state.config.voice.pitch = Number(document.getElementById('voicePitch').value);
+      document.querySelectorAll('.quick-row').forEach(row => {
+        const index = Number(row.dataset.index);
+        state.config.quick_actions[index].label = row.querySelector('.quick-label').value.trim();
+        state.config.quick_actions[index].prompt = row.querySelector('.quick-prompt').value.trim();
+      });
+      return state.config;
+    }
+    async function save() {
+      const button = document.getElementById('saveButton');
+      button.disabled = true;
+      try {
+        const response = await api('/giddy/api/config', { method: 'POST', body: JSON.stringify(collectConfig()) });
+        state.config = await response.json();
+        state.dirty = false;
+        renderAll();
+        toast('Configuracion guardada');
+      } catch (error) { toast(error.message, true); }
+      finally { button.disabled = false; }
+    }
+    async function previewRoute() {
+      const text = document.getElementById('routeInput').value.trim();
+      if (!text) return;
+      const decision = document.getElementById('routeDecision');
+      decision.className = 'decision';
+      decision.textContent = 'Evaluando...';
+      try {
+        const result = await (await api('/giddy/api/route-preview', { method: 'POST', body: JSON.stringify({ text }) })).json();
+        decision.className = `decision ${result.route}`;
+        const routeNames = { instant: 'Respuesta instantánea', local: 'Modelo local', power: 'Hermes potente' };
+        decision.textContent = `${routeNames[result.route] || 'Ruta'}: ${result.reason}.`;
+      } catch (error) { toast(error.message, true); }
+    }
+    async function previewVoice() {
+      const button = document.getElementById('voicePreviewButton');
+      button.disabled = true;
+      button.textContent = 'Preparando...';
+      try {
+        const response = await api('/giddy/api/voice-preview', { method: 'POST', body: JSON.stringify({ text: document.getElementById('voiceSample').value, voice: document.getElementById('voiceSelect').value, rate: Number(document.getElementById('voiceRate').value), pitch: Number(document.getElementById('voicePitch').value) }) });
+        const audio = new Audio(URL.createObjectURL(await response.blob()));
+        await audio.play();
+      } catch (error) { toast(error.message, true); }
+      finally { button.disabled = false; button.textContent = 'Escuchar prueba'; }
+    }
+
+    document.querySelectorAll('.nav-button').forEach(button => button.addEventListener('click', () => {
+      document.querySelectorAll('.nav-button').forEach(item => item.classList.toggle('active', item === button));
+      document.querySelectorAll('.view').forEach(view => view.classList.toggle('active', view.id === `view-${button.dataset.view}`));
+      document.getElementById('pageHeading').textContent = pageMeta[button.dataset.view][0];
+      document.getElementById('pageSubheading').textContent = pageMeta[button.dataset.view][1];
+    }));
+    document.querySelectorAll('.segment').forEach(button => button.addEventListener('click', () => setMode(button.dataset.mode)));
+    document.getElementById('saveButton').addEventListener('click', save);
+    document.getElementById('refreshButton').addEventListener('click', () => refreshStatus(true));
+    document.getElementById('routeButton').addEventListener('click', previewRoute);
+    document.getElementById('addInstantButton').addEventListener('click', addInstantResponse);
+    document.getElementById('routeInput').addEventListener('keydown', event => { if (event.key === 'Enter') previewRoute(); });
+    document.getElementById('voicePreviewButton').addEventListener('click', previewVoice);
+    document.getElementById('voiceRate').addEventListener('input', event => { document.getElementById('voiceRateValue').textContent = `${event.target.value >= 0 ? '+' : ''}${event.target.value}%`; state.dirty = true; });
+    document.getElementById('voicePitch').addEventListener('input', event => { document.getElementById('voicePitchValue').textContent = `${event.target.value >= 0 ? '+' : ''}${event.target.value} Hz`; state.dirty = true; });
+    document.getElementById('voiceProfile').addEventListener('change', event => {
+      const preset = voiceProfiles[event.target.value];
+      document.getElementById('voiceSelect').value = preset.voice;
+      document.getElementById('voiceRate').value = preset.rate;
+      document.getElementById('voicePitch').value = preset.pitch;
+      document.getElementById('voiceRateValue').textContent = `${preset.rate >= 0 ? '+' : ''}${preset.rate}%`;
+      document.getElementById('voicePitchValue').textContent = `${preset.pitch >= 0 ? '+' : ''}${preset.pitch} Hz`;
+      state.dirty = true;
+    });
+    document.querySelectorAll('#localMax, #powerMax, #localContext, #powerContext, #instantEnabled, #thinkingCueEnabled, #voiceCacheEnabled, #localCue, #thinkingCue, #timeZone, #voiceSelect').forEach(element => element.addEventListener('change', () => state.dirty = true));
+    document.getElementById('tokenButton').addEventListener('click', () => {
+      state.token = document.getElementById('tokenInput').value.trim();
+      localStorage.setItem('giddy-setup-token', state.token);
+      load();
+    });
+    document.getElementById('tokenInput').addEventListener('keydown', event => { if (event.key === 'Enter') document.getElementById('tokenButton').click(); });
+    window.addEventListener('beforeunload', event => { if (state.dirty) { event.preventDefault(); event.returnValue = ''; } });
+
+    const query = new URLSearchParams(location.search);
+    state.token = query.get('token') || localStorage.getItem('giddy-setup-token') || '';
+    if (query.has('token')) { localStorage.setItem('giddy-setup-token', state.token); history.replaceState({}, '', location.pathname); }
+    if (state.token) load(); else document.getElementById('authDialog').classList.add('visible');
+    setInterval(() => { if (state.token) refreshStatus(false); }, 30000);
+  </script>
+</body>
+</html>

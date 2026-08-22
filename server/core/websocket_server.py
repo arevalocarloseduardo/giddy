@@ -1,4 +1,5 @@
 import asyncio
+import json
 import logging
 
 import websockets
@@ -44,6 +45,8 @@ class WebSocketServer:
         self.config = config
         self.logger = setup_logging(config)
         self.config_lock = asyncio.Lock()
+        self.active_connections = {}
+        self.active_connections_lock = asyncio.Lock()
         modules = initialize_modules(
             self.logger,
             self.config,
@@ -114,6 +117,11 @@ class WebSocketServer:
             await websocket.close()
             return
         # 创建ConnectionHandler时传入当前server实例
+        device_id = str(websocket.request.headers.get("device-id", "")).strip().lower()
+        if device_id:
+            async with self.active_connections_lock:
+                self.active_connections[device_id] = websocket
+
         handler = ConnectionHandler(
             self.config,
             self._vad,
@@ -128,6 +136,10 @@ class WebSocketServer:
         except Exception as e:
             self.logger.bind(tag=TAG).error(f"处理连接时出错: {e}")
         finally:
+            if device_id:
+                async with self.active_connections_lock:
+                    if self.active_connections.get(device_id) is websocket:
+                        self.active_connections.pop(device_id, None)
             # 强制关闭连接（如果还没有关闭的话）
             try:
                 # 安全地检查WebSocket状态并关闭
@@ -142,6 +154,39 @@ class WebSocketServer:
                 self.logger.bind(tag=TAG).error(
                     f"服务器端强制关闭连接时出错: {close_error}"
                 )
+
+    async def send_system_command(self, command: str, device_id: str = "") -> dict:
+        command = str(command).strip().lower()
+        if command not in {"reboot"}:
+            raise ValueError("Unsupported system command")
+
+        requested_device = str(device_id or "").strip().lower()
+        async with self.active_connections_lock:
+            if requested_device:
+                websocket = self.active_connections.get(requested_device)
+                targets = [(requested_device, websocket)] if websocket else []
+            else:
+                targets = list(self.active_connections.items())
+
+        delivered = []
+        unavailable = []
+        payload = json.dumps({"type": "system", "command": command})
+        for current_device, websocket in targets:
+            try:
+                await websocket.send(payload)
+                delivered.append(current_device)
+            except Exception:
+                unavailable.append(current_device)
+                async with self.active_connections_lock:
+                    if self.active_connections.get(current_device) is websocket:
+                        self.active_connections.pop(current_device, None)
+
+        return {
+            "command": command,
+            "requested_device": requested_device or None,
+            "delivered": delivered,
+            "unavailable": unavailable,
+        }
 
     async def _http_response(self, websocket, request_headers):
         # 检查是否为 WebSocket 升级请求

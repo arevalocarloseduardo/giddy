@@ -11,7 +11,7 @@ import threading
 import traceback
 import subprocess
 import websockets
-import opuslib_next
+from core.utils.opus_compat import opuslib_next
 import numpy as np
 
 from core.utils.util import (
@@ -118,10 +118,15 @@ class ConnectionHandler:
         self.client_listen_mode = "auto"
         self.client_aec = False  # 是否启用了服务端AEC
         self.single_turn_active = False
+        self.giddy_interaction_mode = "chat"
+        self.giddy_exclusive_operation = None
+        self.giddy_ignore_audio_until = 0.0
+        self.giddy_last_audio_block_log_at = 0.0
 
         # 线程任务相关
         self.loop = None  # 在 handle_connection 中获取运行中的事件循环
         self.stop_event = threading.Event()
+        self.components_ready_event = asyncio.Event()
         self.executor = ThreadPoolExecutor(max_workers=5)
 
         # 添加上报线程池
@@ -158,6 +163,7 @@ class ConnectionHandler:
         # 因为实际部署时可能会用到公共的本地ASR，不能把变量暴露给公共ASR
         # 所以涉及到ASR的变量，需要在这里定义，属于connection的私有变量
         self.asr_audio = []  # 存储PCM帧列表，供VAD和ASR共享
+        self.asr_audio_bytes = 0
         self.asr_audio_queue = queue.Queue()
         self.current_speaker = None  # 存储当前说话人
         self.introduced_speakers = set()  # 已"首次引入"的说话人，控制只在首轮带名字
@@ -240,7 +246,9 @@ class ConnectionHandler:
             # 启动AEC缓存清理任务
             self._aec_cache_cleanup_task = asyncio.create_task(self._check_aec_cache_expiry())
 
-            self.welcome_msg = self.config["xiaozhi"]
+            # Each connection owns its handshake state. A client hello must never
+            # mutate the global audio configuration used by other devices.
+            self.welcome_msg = copy.deepcopy(self.config["xiaozhi"])
             self.welcome_msg["session_id"] = self.session_id
 
             # 从配置中读取采样率
@@ -280,7 +288,7 @@ class ConnectionHandler:
         """保存记忆并关闭连接"""
         try:
             # 守护线程1：独立生成标题（不依赖记忆模型）
-            if self.session_id:
+            if self.session_id and self.read_config_from_api:
                 def generate_title_task():
                     try:
                         loop = asyncio.new_event_loop()
@@ -644,6 +652,11 @@ class ConnectionHandler:
             self._initialize_memory()
             """加载意图识别"""
             self._initialize_intent()
+            # Direct intents only need TTS and the tool handler. Let weather,
+            # music and other fast controls run while the longer enriched
+            # prompt is prepared for model-backed questions.
+            if self.loop:
+                self.loop.call_soon_threadsafe(self.components_ready_event.set)
             """初始化上报线程"""
             self._init_report_threads()
             """更新系统提示词"""
@@ -653,6 +666,12 @@ class ConnectionHandler:
 
         except Exception as e:
             self.logger.bind(tag=TAG).error(f"实例化组件失败: {e}")
+        finally:
+            # Text can arrive immediately after the WebSocket hello. Publish
+            # readiness from the event loop so intent tools never race the
+            # background initializer.
+            if self.loop:
+                self.loop.call_soon_threadsafe(self.components_ready_event.set)
 
     def _init_prompt_enhancement(self):
 
@@ -1025,7 +1044,17 @@ class ConnectionHandler:
 
         # 异步初始化工具处理器
         if hasattr(self, "loop") and self.loop:
-            asyncio.run_coroutine_threadsafe(self.func_handler._initialize(), self.loop)
+            future = asyncio.run_coroutine_threadsafe(
+                self.func_handler._initialize(), self.loop
+            )
+            try:
+                future.result(
+                    timeout=float(self.config.get("tool_init_timeout", 8))
+                )
+            except Exception as e:
+                self.logger.bind(tag=TAG).warning(
+                    f"工具处理器初始化未及时完成: {e}"
+                )
 
     def change_system_prompt(self, prompt):
         self.prompt = prompt
@@ -1680,9 +1709,13 @@ class ConnectionHandler:
         self.client_voice_window.clear()
         self.last_is_voice = False
         self.vad_last_voice_time = 0.0
+        reset_vad = getattr(self.vad, "reset_connection", None)
+        if reset_vad is not None:
+            reset_vad(self)
 
         # Clear ASR buffers
         self.asr_audio.clear()
+        self.asr_audio_bytes = 0
 
         self.logger.bind(tag=TAG).debug("All audio states reset.")
 

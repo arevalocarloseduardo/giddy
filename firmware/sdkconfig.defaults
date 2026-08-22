@@ -80,7 +80,7 @@ CONFIG_LV_BUILD_DEMOS=n
 # Config Charli: Waveshare ESP32-S3-Touch-LCD-1.54 en espanol
 CONFIG_BOARD_TYPE_WAVESHARE_ESP32_S3_TOUCH_LCD_1_54=y
 # Servidor local de Charli (xiaozhi-esp32-server en la Mac)
-CONFIG_OTA_URL="http://192.168.0.51:8003/xiaozhi/ota/"
+CONFIG_OTA_URL="http://192.168.0.10:8003/xiaozhi/ota/"
 CONFIG_LANGUAGE_ES_ES=y
 CONFIG_USE_WECHAT_MESSAGE_STYLE=n
 CONFIG_USE_DEVICE_AEC=y

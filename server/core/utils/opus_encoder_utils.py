@@ -6,9 +6,12 @@ Opus编码工具类
 import logging
 import traceback
 import numpy as np
-from opuslib_next import Encoder
-from opuslib_next import constants
+from core.utils.opus_compat import opuslib_next
 from typing import Optional, Callable, Any
+
+
+Encoder = opuslib_next.Encoder
+constants = opuslib_next.constants
 
 class OpusEncoderUtils:
     """PCM到Opus的编码器"""

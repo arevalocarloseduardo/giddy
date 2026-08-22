@@ -366,6 +366,13 @@ void Application::ActivationTask() {
     // Check for new firmware version
     CheckNewVersion();
 
+    // OTA may advertise assets during the version check. Apply them now so a
+    // device with broken wake-word assets can recover without opening audio.
+    if (ota_->HasAssetsUpdate()) {
+        assets_version_checked_ = false;
+        CheckAssetsVersion();
+    }
+
     // Initialize the protocol
     InitializeProtocol();
 
@@ -427,8 +434,16 @@ void Application::CheckAssetsVersion() {
         }
     }
 
-    // Apply assets
-    assets.Apply();
+    // Only promote the pending version after the display accepts the package.
+    if (!assets.Apply()) {
+        ESP_LOGE(TAG, "Failed to apply assets package");
+        return;
+    }
+    std::string pending_version = settings.GetString("pending_version");
+    if (!pending_version.empty()) {
+        settings.SetString("version", pending_version);
+        settings.EraseKey("pending_version");
+    }
     display->SetChatMessage("system", "");
     display->SetEmotion("robot_2");
 }
@@ -572,9 +587,16 @@ void Application::InitializeProtocol() {
                 return;
             }
             if (strcmp(state->valuestring, "start") == 0) {
-                Schedule([this]() {
+                auto emotion = cJSON_GetObjectItem(root, "emotion");
+                std::string emotion_str = cJSON_IsString(emotion)
+                    ? std::string(emotion->valuestring)
+                    : std::string();
+                Schedule([this, display, emotion_str]() {
                     aborted_ = false;
                     SetDeviceState(kDeviceStateSpeaking);
+                    if (!emotion_str.empty()) {
+                        display->SetEmotion(emotion_str.c_str());
+                    }
                 });
             } else if (strcmp(state->valuestring, "stop") == 0) {
                 Schedule([this]() {
@@ -636,6 +658,26 @@ void Application::InitializeProtocol() {
                 if (strcmp(command->valuestring, "reboot") == 0) {
                     // Do a reboot if user requests a OTA update
                     Schedule([this]() { Reboot(); });
+                } else if (strcmp(command->valuestring, "set_interaction_mode") == 0) {
+                    auto mode = cJSON_GetObjectItem(root, "mode");
+                    if (!cJSON_IsString(mode)) {
+                        ESP_LOGW(TAG, "Interaction mode command requires mode");
+                        return;
+                    }
+                    std::string mode_str(mode->valuestring);
+                    Schedule([this, display, mode_str]() {
+                        if (mode_str == "sleep") {
+                            display->SetChatMessage("system", "");
+                            display->SetPowerSaveMode(true);
+                            if (protocol_) {
+                                protocol_->CloseAudioChannel();
+                            }
+                        } else if (mode_str == "listen_only") {
+                            display->ShowNotification("Modo silencioso", 1200);
+                        } else if (mode_str == "chat") {
+                            display->ShowNotification("Voz activada", 900);
+                        }
+                    });
                 } else {
                     ESP_LOGW(TAG, "Unknown system command: %s", command->valuestring);
                 }
@@ -770,6 +812,10 @@ void Application::ContinueOpenAudioChannel(ListeningMode mode) {
     board.SetPowerSaveLevel(PowerSaveLevel::PERFORMANCE);
 
     if (!protocol_->IsAudioChannelOpened()) {
+        // Give the Wi-Fi radio a moment to leave modem sleep before opening
+        // the socket. Without this, the first connection can fail while the
+        // device is otherwise still reachable on the network.
+        vTaskDelay(pdMS_TO_TICKS(150));
         if (!protocol_->OpenAudioChannel()) {
             // Return to idle so the device is not stuck in the connecting
             // state (not every failure path reports a network error)
@@ -865,6 +911,7 @@ void Application::HandleWakeWordDetectedEvent() {
 }
 
 void Application::BeginWakeWordInvoke(const std::string& wake_word) {
+    Board::GetInstance().GetDisplay()->SetPowerSaveMode(false);
     // Must run in the main task with the device in idle state
     audio_service_.EncodeWakeWord();
 
@@ -904,6 +951,8 @@ void Application::ContinueWakeWordInvoke(const std::string& wake_word) {
     board.SetPowerSaveLevel(PowerSaveLevel::PERFORMANCE);
 
     if (!protocol_->IsAudioChannelOpened()) {
+        // Wake the Wi-Fi radio fully before the first socket attempt.
+        vTaskDelay(pdMS_TO_TICKS(150));
         if (!protocol_->OpenAudioChannel()) {
             // Return to idle so the device is not stuck in the connecting
             // state (not every failure path reports a network error), and
@@ -1155,6 +1204,41 @@ void Application::WakeWordInvoke(const std::string& wake_word) {
             }
         });
     }
+}
+
+void Application::RunQuickAction(const std::string& action_id) {
+    if (!protocol_ || action_id.empty()) {
+        return;
+    }
+
+    Schedule([this, action_id]() {
+        if (GetDeviceState() != kDeviceStateIdle) {
+            Board::GetInstance().GetDisplay()->ShowNotification("Giddy esta ocupado");
+            return;
+        }
+        if (!SetDeviceState(kDeviceStateConnecting)) {
+            return;
+        }
+        Schedule([this, action_id]() { ContinueQuickAction(action_id); });
+    });
+}
+
+void Application::ContinueQuickAction(const std::string& action_id) {
+    if (!protocol_ || GetDeviceState() != kDeviceStateConnecting) {
+        return;
+    }
+
+    auto& board = Board::GetInstance();
+    board.SetPowerSaveLevel(PowerSaveLevel::PERFORMANCE);
+    if (!protocol_->IsAudioChannelOpened() && !protocol_->OpenAudioChannel()) {
+        SetDeviceState(kDeviceStateIdle);
+        board.GetDisplay()->ShowNotification("Sin conexion");
+        return;
+    }
+
+    listening_mode_ = kListeningModeManualStop;
+    protocol_->SendWakeWordDetected("[giddy_action:" + action_id + "]");
+    SetDeviceState(kDeviceStateIdle);
 }
 
 bool Application::CanEnterSleepMode() {

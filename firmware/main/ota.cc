@@ -1,4 +1,5 @@
 #include "ota.h"
+#include "assets.h"
 #include "system_info.h"
 #include "settings.h"
 #include "assets/lang_config.h"
@@ -121,6 +122,7 @@ esp_err_t Ota::CheckVersion() {
 
     has_activation_code_ = false;
     has_activation_challenge_ = false;
+    has_assets_update_ = false;
     cJSON *activation = cJSON_GetObjectItem(root, "activation");
     if (cJSON_IsObject(activation)) {
         cJSON* message = cJSON_GetObjectItem(activation, "message");
@@ -183,6 +185,27 @@ esp_err_t Ota::CheckVersion() {
         has_websocket_config_ = true;
     } else {
         ESP_LOGI(TAG, "No websocket section found!");
+    }
+
+    cJSON* assets_update = cJSON_GetObjectItem(root, "assets");
+    if (cJSON_IsObject(assets_update)) {
+        cJSON* version = cJSON_GetObjectItem(assets_update, "version");
+        cJSON* url = cJSON_GetObjectItem(assets_update, "url");
+        cJSON* expected_charset = cJSON_GetObjectItem(assets_update, "expected_charset");
+        if (cJSON_IsString(version) && version->valuestring[0] != '\0' && cJSON_IsString(url) &&
+            url->valuestring[0] != '\0') {
+            Settings settings("assets", true);
+            std::string installed_version = settings.GetString("version");
+            auto capability = Assets::GetInstance().text_font_capability();
+            bool charset_mismatch = cJSON_IsString(expected_charset) &&
+                                    capability.charset != expected_charset->valuestring;
+            if (installed_version != version->valuestring || charset_mismatch) {
+                settings.SetString("download_url", url->valuestring);
+                settings.SetString("pending_version", version->valuestring);
+                has_assets_update_ = true;
+                ESP_LOGI(TAG, "Assets update available: %s", version->valuestring);
+            }
+        }
     }
 
     has_server_time_ = false;

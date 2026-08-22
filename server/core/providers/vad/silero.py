@@ -1,9 +1,11 @@
 import time
 import os
+from pathlib import Path
 import numpy as np
 import onnxruntime
 from config.logger import setup_logging
 from core.providers.vad.base import VADProviderBase
+from core.providers.vad.pipecat_smart_turn import PipecatSmartTurn
 
 TAG = __name__
 logger = setup_logging()
@@ -16,6 +18,15 @@ class VADProvider(VADProviderBase):
         model_path = os.path.join(
             config["model_dir"], "src", "silero_vad", "data", "silero_vad.onnx"
         )
+        if not os.path.isfile(model_path):
+            try:
+                import silero_vad
+
+                packaged_model = Path(silero_vad.__file__).resolve().parent / "data" / "silero_vad.onnx"
+                if packaged_model.is_file():
+                    model_path = str(packaged_model)
+            except Exception:
+                pass
         opts = onnxruntime.SessionOptions()
         opts.inter_op_num_threads = 1
         opts.intra_op_num_threads = 1
@@ -38,6 +49,13 @@ class VADProvider(VADProviderBase):
         # Five 32 ms frames are kept in the rolling window. Requiring four
         # positives rejects short/background bursts while adding little delay.
         self.frame_window_threshold = max(1, min(5, int(min_voice_frames)))
+        self.smart_turn = PipecatSmartTurn(config)
+        if self.smart_turn.available:
+            logger.bind(tag=TAG).info(
+                "Fin de turno semantico activo: minimo={}ms, fallback={}ms",
+                self.smart_turn.min_silence_ms,
+                self.smart_turn.fallback_ms,
+            )
 
     def _init_connection_state(self, conn):
         """为连接初始化独立的 VAD 状态"""
@@ -54,6 +72,7 @@ class VADProvider(VADProviderBase):
                     delattr(conn, attr)
                 except Exception:
                     pass
+        self.smart_turn.release_connection(conn)
 
     def is_vad(self, conn, pcm_frame):
         # 手动模式：直接返回True，不进行实时VAD检测，所有音频都缓存
@@ -105,8 +124,14 @@ class VADProvider(VADProviderBase):
                     conn.client_voice_window.count(True) >= self.frame_window_threshold
                 )
 
+                self.smart_turn.append(conn, audio_int16, client_have_voice)
+
                 # 如果之前有声音，但本次没有声音，且与上次有声音的时间差已经超过了静默阈值，则认为已经说完一句话
-                if conn.client_have_voice and not client_have_voice:
+                if (
+                    not self.smart_turn.available
+                    and conn.client_have_voice
+                    and not client_have_voice
+                ):
                     stop_duration = time.time() * 1000 - conn.vad_last_voice_time
                     if stop_duration >= self.silence_threshold_ms:
                         conn.client_voice_stop = True
@@ -117,3 +142,19 @@ class VADProvider(VADProviderBase):
             return client_have_voice
         except Exception as e:
             logger.bind(tag=TAG).error(f"Error processing audio packet: {e}")
+
+    async def should_end_turn(self, conn, have_voice):
+        if have_voice or not conn.client_have_voice:
+            return False
+
+        silence_ms = time.time() * 1000 - conn.vad_last_voice_time
+        decision = await self.smart_turn.evaluate(conn, silence_ms)
+        if decision is None:
+            return conn.client_voice_stop
+        if decision:
+            conn.client_voice_stop = True
+            return True
+        return False
+
+    def reset_connection(self, conn):
+        self.smart_turn.reset_connection(conn)

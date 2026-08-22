@@ -18,6 +18,7 @@ from core.handle.receiveAudioHandle import startToChat
 from core.handle.reportHandle import enqueue_asr_report
 from core.utils.util import remove_punctuation_and_length
 from core.handle.receiveAudioHandle import handleAudioMessage
+from core.interaction_guard import discard_blocked_audio
 from typing import Optional, Tuple, List, NamedTuple, TYPE_CHECKING
 
 
@@ -59,18 +60,43 @@ class ASRProviderBase(ABC):
 
     # 接收音频
     async def receive_audio(self, conn: "ConnectionHandler", pcm_frame, audio_have_voice):
+        max_command_seconds = max(
+            3.0, float(conn.config.get("max_voice_command_seconds", 10))
+        )
+        max_command_bytes = int(max_command_seconds * 16000 * 2)
+
         if conn.client_listen_mode == "manual":
             # 手动模式：缓存音频用于ASR识别
             conn.asr_audio.append(pcm_frame)
+            conn.asr_audio_bytes += len(pcm_frame)
         else:
             # 自动/实时模式：使用VAD检测
             conn.asr_audio.append(pcm_frame)
+            conn.asr_audio_bytes += len(pcm_frame)
 
             # 如果没有语音，且之前也没有声音，缓存部分音频
             if not audio_have_voice and not conn.client_have_voice:
                 conn.asr_audio = conn.asr_audio[-10:]
+                conn.asr_audio_bytes = sum(len(frame) for frame in conn.asr_audio)
                 return
 
+        if (
+            conn.asr.interface_type != InterfaceType.STREAM
+            and conn.asr_audio_bytes >= max_command_bytes
+        ):
+            audio_task = conn.asr_audio.copy()
+            conn.reset_audio_states()
+            conn.close_after_chat = True
+            logger.bind(tag=TAG).warning(
+                f"Limite de audio alcanzado ({max_command_seconds:.1f}s); "
+                "procesando la orden sin esperar mas"
+            )
+            accepted = await self.handle_voice_stop(conn, audio_task)
+            if accepted is False:
+                await conn.close()
+            return
+
+        if conn.client_listen_mode != "manual":
             # 自动模式下通过VAD检测到语音停止时触发识别
             if conn.asr.interface_type != InterfaceType.STREAM and conn.client_voice_stop:
                 # 直接使用asr_audio中的PCM数据
@@ -84,6 +110,9 @@ class ASRProviderBase(ABC):
     async def handle_voice_stop(self, conn: "ConnectionHandler", asr_audio_task: List[bytes]):
         """并行处理ASR和声纹识别"""
         try:
+            if discard_blocked_audio(conn, "inicio de reconocimiento"):
+                return True
+
             total_start_time = time.monotonic()
 
             # 数据已经是PCM直接使用
@@ -157,6 +186,8 @@ class ASRProviderBase(ABC):
 
             # 性能监控
             total_time = time.monotonic() - total_start_time
+            if discard_blocked_audio(conn, "resultado de reconocimiento"):
+                return True
             logger.bind(tag=TAG).debug(f"总处理耗时: {total_time:.3f}s")
 
             # 检查文本长度
@@ -168,11 +199,14 @@ class ASRProviderBase(ABC):
                 enqueue_asr_report(conn, enhanced_text, audio_snapshot)
                 # 使用自定义模块进行上报
                 await startToChat(conn, enhanced_text)
+                return True
+            return False
         except Exception as e:
             logger.bind(tag=TAG).error(f"处理语音停止失败: {e}")
             import traceback
 
             logger.bind(tag=TAG).debug(f"异常详情: {traceback.format_exc()}")
+            return False
 
     def _build_enhanced_text(self, text: str, speaker_name: Optional[str]) -> str:
         """构建包含说话人信息的文本（仅用于纯文本ASR）"""

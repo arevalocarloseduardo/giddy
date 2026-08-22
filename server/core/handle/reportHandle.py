@@ -11,7 +11,7 @@ TTS上报功能已集成到ConnectionHandler类中。
 
 import time
 import json
-import opuslib_next
+from core.utils.opus_compat import opuslib_next
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:

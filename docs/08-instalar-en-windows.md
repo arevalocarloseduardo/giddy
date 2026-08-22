@@ -2,6 +2,11 @@
 
 Los otros docs están escritos para macOS. Esta es la versión Windows, para mover el servidor a la PC con GPU (y de paso tener Hermes Agent en la misma máquina).
 
+> Para la instalación local actual, integrada con el contenedor `hermes-giddy`,
+> seguí también [09-hermes-giddy-local.md](09-hermes-giddy-local.md). Esa variante
+> usa WebSocket `8010`, Whisper local y Hermes; el puerto `8000` queda libre para
+> OpenVoice y no requiere claves de OpenRouter ni Groq.
+
 > ✅ **Este repo ya trae el código**: `server/` y `firmware/` están vendorizados con nuestros cambios aplicados. No hace falta clonar el upstream ni aplicar parches.
 
 ## ⚠️ Leé esto primero: el paso que la gente olvida
@@ -183,4 +188,6 @@ Register-ScheduledTask -TaskName "Giddy" -Action $acc `
 
 ## Y después: Hermes Agent
 
-Con el servidor andando en la PC, seguí con **[docs/06-hermes-otra-maquina.md](06-hermes-otra-maquina.md)** — ahí está el prompt para instalar Hermes Agent y el puente. Ventaja de tener todo en la misma máquina: el servidor le pega a Hermes por `localhost`, sin latencia de red.
+En esta PC Hermes ya está integrado de forma nativa, sin un puente adicional.
+La configuración, el aislamiento del usuario Giddy y las pruebas de operación
+están en **[docs/09-hermes-giddy-local.md](09-hermes-giddy-local.md)**.

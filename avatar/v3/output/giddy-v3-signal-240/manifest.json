@@ -1,0 +1,48 @@
+{
+  "schema": 1,
+  "avatarVersion": "3.0-signal",
+  "display": {
+    "width": 240,
+    "height": 240,
+    "color": "RGB565"
+  },
+  "identity": "asymmetric same-direction signal modules",
+  "emotionContract": [
+    "boot",
+    "wake",
+    "dozing",
+    "goodnight",
+    "listening",
+    "speaking",
+    "music",
+    "connecting",
+    "curious",
+    "neutral",
+    "robot_2",
+    "happy",
+    "laughing",
+    "sad",
+    "crying",
+    "angry",
+    "sleepy",
+    "surprised",
+    "shocked",
+    "thinking",
+    "confused",
+    "winking",
+    "loving",
+    "cool",
+    "confident",
+    "embarrassed",
+    "funny",
+    "silly",
+    "kissy",
+    "relaxed",
+    "delicious"
+  ],
+  "motion": {
+    "elasticity": "0-4%",
+    "timing": "controlled pose-to-pose",
+    "secondaryAction": "minimal and state-derived"
+  }
+}

@@ -197,7 +197,9 @@ async def get_correct_words(mac_address: str) -> Optional[Dict]:
 
 
 async def generate_and_save_chat_summary(session_id: str) -> Optional[Dict]:
-    """生成并保存聊天记录总结"""
+    """Generate and save a chat summary through the management API."""
+    if not ManageApiClient._instance:
+        return None
     try:
         return await ManageApiClient._instance._execute_async_request(
             "POST",
@@ -209,7 +211,9 @@ async def generate_and_save_chat_summary(session_id: str) -> Optional[Dict]:
 
 
 async def generate_and_save_chat_title(session_id: str) -> Optional[Dict]:
-    """生成并保存聊天标题"""
+    """Generate and save a chat title through the management API."""
+    if not ManageApiClient._instance:
+        return None
     try:
         return await ManageApiClient._instance._execute_async_request(
             "POST",

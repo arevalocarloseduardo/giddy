@@ -474,8 +474,13 @@ elseif(CONFIG_BOARD_TYPE_WAVESHARE_ESP32_S3_TOUCH_LCD_1_54)
     set(BOARD_TYPE "esp32-s3-touch-lcd-1.54")
     set(BUILTIN_TEXT_FONT font_noto_sans_basic_16_4)  # texto chico sobre la cara
     set(BUILTIN_ICON_FONT font_material_symbols_20_4)
-    # Avatar PRO animado de Charli (gradientes, ver custom_emoji/generate_faces_pro.py)
-    set(DEFAULT_EMOJI_COLLECTION ${CMAKE_CURRENT_LIST_DIR}/../custom_emoji/robot-pro_240)
+    # Giddy V3: organic blue focus eyes selected from the avatar concept sheet.
+    set(DEFAULT_EMOJI_COLLECTION ${CMAKE_CURRENT_LIST_DIR}/../custom_emoji/giddy-v3-leaf-240)
+    if(NOT IS_DIRECTORY "${DEFAULT_EMOJI_COLLECTION}")
+        message(FATAL_ERROR
+            "Giddy animated face assets are missing: ${DEFAULT_EMOJI_COLLECTION}"
+        )
+    endif()
 elseif(CONFIG_BOARD_TYPE_WAVESHARE_ESP32_S3_LCD_0_85)
     set(MANUFACTURER "waveshare")
     set(BOARD_TYPE "esp32-s3-lcd-0.85")
@@ -1223,9 +1228,16 @@ function(build_default_assets_bin)
     # Add default emoji collection if defined
     if(DEFAULT_EMOJI_COLLECTION)
         list(APPEND BUILD_ARGS "--emoji_collection" "${DEFAULT_EMOJI_COLLECTION}")
-        file(GLOB DEFAULT_EMOJI_FILES CONFIGURE_DEPENDS
-            "${NOTO_FONTS_PATH}/png/${DEFAULT_EMOJI_COLLECTION}/*"
-        )
+        if(IS_DIRECTORY "${DEFAULT_EMOJI_COLLECTION}")
+            file(GLOB DEFAULT_EMOJI_FILES CONFIGURE_DEPENDS
+                "${DEFAULT_EMOJI_COLLECTION}/*"
+            )
+        else()
+            file(GLOB DEFAULT_EMOJI_FILES CONFIGURE_DEPENDS
+                "${NOTO_FONTS_PATH}/png/${DEFAULT_EMOJI_COLLECTION}/*"
+                "${NOTO_FONTS_PATH}/gif/${DEFAULT_EMOJI_COLLECTION}/*"
+            )
+        endif()
         list(APPEND DEFAULT_ASSETS_DEPENDENCIES ${DEFAULT_EMOJI_FILES})
     endif()
 

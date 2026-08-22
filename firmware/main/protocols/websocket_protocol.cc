@@ -8,6 +8,8 @@
 #include <arpa/inet.h>
 #include <cJSON.h>
 #include <cstring>
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
 #include "assets/lang_config.h"
 
 #define TAG "WS"
@@ -165,9 +167,26 @@ bool WebsocketProtocol::OpenAudioChannel() {
         }
     });
 
-    ESP_LOGI(TAG, "Connecting to websocket server: %s with version: %d", url.c_str(), version_);
-    if (!websocket_->Connect(url.c_str())) {
-        ESP_LOGE(TAG, "Failed to connect to websocket server, code=%d", websocket_->GetLastError());
+    constexpr int kMaxConnectAttempts = 3;
+    bool connected = false;
+    for (int attempt = 1; attempt <= kMaxConnectAttempts; ++attempt) {
+        ESP_LOGI(TAG, "Connecting to websocket server: %s with version: %d (attempt %d/%d)",
+                 url.c_str(), version_, attempt, kMaxConnectAttempts);
+        if (websocket_->Connect(url.c_str())) {
+            connected = true;
+            break;
+        }
+
+        ESP_LOGW(TAG, "Websocket connection attempt %d/%d failed, code=%d", attempt,
+                 kMaxConnectAttempts, websocket_->GetLastError());
+        if (attempt < kMaxConnectAttempts) {
+            vTaskDelay(pdMS_TO_TICKS(150 * attempt));
+        }
+    }
+
+    if (!connected) {
+        ESP_LOGE(TAG, "Failed to connect to websocket server after %d attempts, code=%d",
+                 kMaxConnectAttempts, websocket_->GetLastError());
         SetError(Lang::Strings::SERVER_NOT_CONNECTED);
         return false;
     }

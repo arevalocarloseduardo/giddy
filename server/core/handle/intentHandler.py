@@ -8,13 +8,37 @@ if TYPE_CHECKING:
 from core.utils.dialogue import Message
 from core.providers.tts.dto.dto import ContentType
 from core.handle.helloHandle import checkWakeupWords
+from core.interaction_modes import (
+    CHAT_MODE,
+    LISTEN_ONLY_MODE,
+    SLEEP_MODE,
+    detect_interaction_mode,
+    is_wake_only_command,
+    send_interaction_mode,
+)
 from plugins_func.register import Action, ActionResponse
 from core.handle.sendAudioHandle import send_stt_message
 from core.handle.reportHandle import enqueue_tool_report
+from core.interaction_guard import begin_exclusive_operation, is_exclusive_tool
 from core.utils.util import remove_punctuation_and_length
 from core.providers.tts.dto.dto import TTSMessageDTO, SentenceType
 
 TAG = __name__
+
+
+async def wait_for_intent_dependencies(conn: "ConnectionHandler", timeout=None):
+    """Wait for per-connection tools when text beats background startup."""
+    ready_event = getattr(conn, "components_ready_event", None)
+    if ready_event is None or ready_event.is_set():
+        return True
+
+    if timeout is None:
+        timeout = float(conn.config.get("component_init_timeout", 8))
+    try:
+        await asyncio.wait_for(ready_event.wait(), timeout=timeout)
+        return True
+    except asyncio.TimeoutError:
+        return False
 
 
 async def handle_user_intent(conn: "ConnectionHandler", text):
@@ -28,6 +52,33 @@ async def handle_user_intent(conn: "ConnectionHandler", text):
     except (json.JSONDecodeError, TypeError):
         pass
 
+    current_mode = getattr(conn, "giddy_interaction_mode", CHAT_MODE)
+    requested_mode = detect_interaction_mode(text, current_mode)
+    if requested_mode is not None:
+        if requested_mode == CHAT_MODE:
+            conn.giddy_interaction_mode = requested_mode
+            await send_interaction_mode(conn, requested_mode)
+            if is_wake_only_command(text):
+                await send_stt_message(conn, text)
+                conn.client_abort = False
+                conn.sentence_id = str(uuid.uuid4().hex)
+                speak_txt(conn, "Te escucho.")
+                return True
+            # Keep processing a request that follows the wake word.
+            return False
+
+        await send_stt_message(conn, text, start_tts=False)
+        conn.giddy_interaction_mode = requested_mode
+        await send_interaction_mode(conn, requested_mode)
+        if requested_mode == SLEEP_MODE:
+            # New firmware closes itself after starting the sleep animation.
+            # This fallback gives older versions the same privacy behavior.
+            await asyncio.sleep(0.12)
+            await conn.close()
+        elif requested_mode == LISTEN_ONLY_MODE:
+            conn.client_abort = False
+        return True
+
     # 检查是否有明确的退出命令
     _, filtered_text = remove_punctuation_and_length(text)
     if await check_direct_exit(conn, filtered_text):
@@ -40,6 +91,13 @@ async def handle_user_intent(conn: "ConnectionHandler", text):
     if conn.intent_type == "function_call":
         # 使用支持function calling的聊天方法,不再进行意图分析
         return False
+
+    if not await wait_for_intent_dependencies(conn):
+        conn.logger.bind(tag=TAG).warning(
+            "Los componentes no terminaron de iniciar antes del primer mensaje"
+        )
+        return False
+
     # 使用LLM进行意图分析
     intent_result = await analyze_intent_with_llm(conn, text)
     if not intent_result:
@@ -148,7 +206,23 @@ async def process_intent_result(
                 "arguments": function_args,
             }
 
-            await send_stt_message(conn, original_text)
+            function_handler = getattr(conn, "func_handler", None)
+            if function_handler is None or not getattr(
+                function_handler, "finish_init", False
+            ):
+                conn.logger.bind(tag=TAG).warning(
+                    f"Herramienta {function_name} detectada antes de estar disponible"
+                )
+                return False
+
+            await send_stt_message(
+                conn,
+                original_text,
+                emotion={
+                    "play_music": "music",
+                    "generate_image": "painting",
+                }.get(function_name),
+            )
             conn.client_abort = False
 
             # 准备工具调用参数
@@ -162,16 +236,26 @@ async def process_intent_result(
             # 上报工具调用
             enqueue_tool_report(conn, function_name, tool_input)
 
+            if is_exclusive_tool(function_name):
+                begin_exclusive_operation(conn, function_name)
+
             # 使用executor执行函数调用和结果处理
             def process_function_call():
                 conn.dialogue.put(Message(role="user", content=original_text))
                 
                 # 工具调用超时时间
                 tool_call_timeout = int(conn.config.get("tool_call_timeout", 30))
+                if function_name == "generate_image":
+                    image_timeout = int(
+                        conn.config.get("plugins", {})
+                        .get("generate_image", {})
+                        .get("timeout_seconds", 120)
+                    )
+                    tool_call_timeout = max(tool_call_timeout, image_timeout + 30)
                 # 使用统一工具处理器处理所有工具调用
                 try:
                     result = asyncio.run_coroutine_threadsafe(
-                        conn.func_handler.handle_llm_function_call(
+                        function_handler.handle_llm_function_call(
                             conn, function_call_data
                         ),
                         conn.loop,
@@ -179,7 +263,9 @@ async def process_intent_result(
                 except Exception as e:
                     conn.logger.bind(tag=TAG).error(f"工具调用失败: {e}")
                     result = ActionResponse(
-                        action=Action.ERROR, result="工具调用超时，请一会再试下哈", response="工具调用超时，请一会再试下哈"
+                        action=Action.ERROR,
+                        result="No pude completar eso ahora. Probemos otra vez.",
+                        response="No pude completar eso ahora. Probemos otra vez.",
                     )
 
                 # 上报工具调用结果
@@ -212,7 +298,10 @@ async def process_intent_result(
                         text = result.response if result.response else result.result
                         if text is not None:
                             speak_txt(conn, text)
-                    elif function_name != "play_music":
+                    elif (
+                        result.action != Action.RECORD
+                        and function_name != "play_music"
+                    ):
                         # For backward compatibility with original code
                         # 获取当前最新的文本索引
                         text = result.response

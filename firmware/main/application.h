@@ -108,6 +108,7 @@ public:
 
     void Reboot();
     void WakeWordInvoke(const std::string& wake_word);
+    void RunQuickAction(const std::string& action_id);
     bool UpgradeFirmware(const std::string& url, const std::string& version = "");
     bool CanEnterSleepMode();
     void SendMcpMessage(const std::string& payload);
@@ -163,6 +164,7 @@ private:
     void ContinueOpenAudioChannel(ListeningMode mode);
     void BeginWakeWordInvoke(const std::string& wake_word);
     void ContinueWakeWordInvoke(const std::string& wake_word);
+    void ContinueQuickAction(const std::string& action_id);
     void StartListeningAudio();
     void ConfigureWakeWordForListening();
 

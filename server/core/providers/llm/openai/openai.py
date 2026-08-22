@@ -22,6 +22,7 @@ class LLMProvider(LLMProviderBase):
     def __init__(self, config):
         self.model_name = config.get("model_name")
         self.api_key = config.get("api_key")
+        self.session_key = str(config.get("session_key") or "").strip()
         if "base_url" in config:
             self.base_url = config.get("base_url")
         else:
@@ -68,7 +69,16 @@ class LLMProvider(LLMProviderBase):
         model_key_msg = check_model_key("LLM", self.api_key)
         if model_key_msg:
             logger.bind(tag=TAG).error(model_key_msg)
-        self.client = openai.OpenAI(api_key=self.api_key, base_url=self.base_url, timeout=custom_timeout)
+        client_kwargs = {
+            "api_key": self.api_key,
+            "base_url": self.base_url,
+            "timeout": custom_timeout,
+        }
+        if self.session_key:
+            client_kwargs["default_headers"] = {
+                "X-Hermes-Session-Key": self.session_key,
+            }
+        self.client = openai.OpenAI(**client_kwargs)
 
     @staticmethod
     def normalize_dialogue(dialogue):

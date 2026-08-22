@@ -8,13 +8,16 @@ import asyncio
 import requests
 import subprocess
 import numpy as np
-import opuslib_next
+from core.utils.opus_compat import opuslib_next
 from io import BytesIO
 from core.utils import p3
+from core.utils.media_tools import configure_media_tools
+FFMPEG_COMMAND = configure_media_tools()
 from pydub import AudioSegment
 from typing import Callable, Any
 
 TAG = __name__
+AudioSegment.converter = FFMPEG_COMMAND
 
 
 def get_local_ip():
@@ -167,7 +170,7 @@ def check_ffmpeg_installed() -> bool:
     try:
         # 尝试执行 ffmpeg 命令
         result = subprocess.run(
-            ["ffmpeg", "-version"],
+            [FFMPEG_COMMAND, "-version"],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
@@ -181,7 +184,7 @@ def check_ffmpeg_installed() -> bool:
         # 如果未检测到版本信息，也视为异常情况
         raise ValueError("未检测到有效的 ffmpeg 版本输出。")
 
-    except (subprocess.CalledProcessError, FileNotFoundError) as e:
+    except (subprocess.CalledProcessError, FileNotFoundError, PermissionError) as e:
         # 提取错误输出
         stderr_output = ""
         if isinstance(e, subprocess.CalledProcessError):
@@ -229,6 +232,16 @@ def extract_json_from_string(input_string):
 def audio_to_data_stream(
     audio_file_path, is_opus=True, callback: Callable[[Any], Any] = None, sample_rate=16000, opus_encoder=None
 ) -> None:
+    if callback is not None and (not is_opus or opus_encoder is not None):
+        _stream_audio_file_to_data(
+            audio_file_path,
+            is_opus=is_opus,
+            callback=callback,
+            sample_rate=sample_rate,
+            opus_encoder=opus_encoder,
+        )
+        return
+
     # 获取文件后缀名
     file_type = os.path.splitext(audio_file_path)[1]
     if file_type:
@@ -244,6 +257,86 @@ def audio_to_data_stream(
     # 获取原始PCM数据（16位小端）
     raw_data = audio.raw_data
     pcm_to_data_stream(raw_data, is_opus, callback, sample_rate, opus_encoder)
+
+
+def _read_pipe_frame(pipe, size):
+    data = bytearray()
+    while len(data) < size:
+        chunk = pipe.read(size - len(data))
+        if not chunk:
+            break
+        data.extend(chunk)
+    return bytes(data)
+
+
+def _stream_audio_file_to_data(
+    audio_file_path,
+    *,
+    is_opus,
+    callback,
+    sample_rate,
+    opus_encoder,
+):
+    """Decode with ffmpeg incrementally so long music starts immediately."""
+    frame_duration = 60
+    frame_size = int(sample_rate * frame_duration / 1000)
+    frame_bytes = frame_size * 2
+    command = [
+        FFMPEG_COMMAND,
+        "-nostdin",
+        "-loglevel",
+        "error",
+        "-i",
+        str(audio_file_path),
+        "-vn",
+        "-ac",
+        "1",
+        "-ar",
+        str(sample_rate),
+        "-f",
+        "s16le",
+        "pipe:1",
+    ]
+    creation_flags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
+    process = subprocess.Popen(
+        command,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        bufsize=0,
+        creationflags=creation_flags,
+    )
+    try:
+        current = _read_pipe_frame(process.stdout, frame_bytes)
+        while current:
+            following = _read_pipe_frame(process.stdout, frame_bytes)
+            if len(current) < frame_bytes:
+                current += b"\x00" * (frame_bytes - len(current))
+
+            if is_opus:
+                opus_encoder.encode_pcm_to_opus_stream(
+                    current,
+                    end_of_stream=not following,
+                    callback=callback,
+                )
+            else:
+                callback(current)
+            current = following
+
+        return_code = process.wait()
+        if return_code != 0:
+            error = process.stderr.read().decode("utf-8", errors="replace").strip()
+            raise RuntimeError(error or f"ffmpeg termino con codigo {return_code}")
+    finally:
+        if process.poll() is None:
+            process.terminate()
+            try:
+                process.wait(timeout=2)
+            except subprocess.TimeoutExpired:
+                process.kill()
+        if process.stdout:
+            process.stdout.close()
+        if process.stderr:
+            process.stderr.close()
 
 
 async def audio_to_data(

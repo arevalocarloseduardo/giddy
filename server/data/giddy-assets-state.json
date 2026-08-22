@@ -1,0 +1,9 @@
+{
+  "28:84:85:91:c0:4c": {
+    "attempts": 2,
+    "observed_charset": "common",
+    "status": "confirmed",
+    "updated_at": "2026-07-28T17:29:29.009731+00:00",
+    "version": "2.4.16"
+  }
+}

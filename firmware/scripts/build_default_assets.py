@@ -357,6 +357,18 @@ def compute_checksum(data):
     return checksum
 
 
+def add_signed_char_compatibility_padding(data):
+    """Make byte sums identical for signed-char and unsigned-char firmware."""
+    high_byte_count = sum(1 for value in data if value >= 0x80)
+    padding_length = (-high_byte_count) % 256
+    if padding_length:
+        # Trailing bytes are outside every indexed asset and are included only
+        # in the package checksum. This keeps already-deployed firmware able to
+        # install packages built after the checksum fix.
+        data.extend(b'\x80' * padding_length)
+    return padding_length
+
+
 def sort_key(filename):
     basename, extension = os.path.splitext(filename)
     return extension, basename
@@ -409,6 +421,7 @@ def pack_assets_simple(target_path, include_path, out_file, assets_path, max_nam
         mmap_table.extend(height.to_bytes(2, byteorder='little'))
 
     combined_data = mmap_table + merged_data
+    compatibility_padding = add_signed_char_compatibility_padding(combined_data)
     combined_checksum = compute_checksum(combined_data)
     combined_data_length = len(combined_data).to_bytes(4, byteorder='little')
     header_data = total_files.to_bytes(4, byteorder='little') + combined_checksum.to_bytes(4, byteorder='little')
@@ -444,6 +457,8 @@ def pack_assets_simple(target_path, include_path, out_file, assets_path, max_nam
         output_header.write('};\n')
 
     print(f'All files have been merged into {os.path.basename(out_file)}')
+    if compatibility_padding:
+        print(f'Added {compatibility_padding} checksum compatibility bytes')
 
 
 # =============================================================================

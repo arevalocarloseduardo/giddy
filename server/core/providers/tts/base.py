@@ -1,5 +1,6 @@
 import os
 import re
+import unicodedata
 import uuid
 import queue
 import asyncio
@@ -18,6 +19,7 @@ from core.utils.tts import MarkdownCleaner, convert_percentage_to_range
 from core.utils.output_counter import add_device_output
 from core.handle.reportHandle import enqueue_tts_report
 from core.handle.sendAudioHandle import sendAudioMessage
+from core.interaction_modes import voice_output_enabled
 from core.utils.util import audio_bytes_to_data_stream, audio_to_data_stream
 from core.providers.tts.dto.dto import (
     TTSMessageDTO,
@@ -29,6 +31,55 @@ from core.providers.tts.dto.dto import (
 TAG = __name__
 logger = setup_logging()
 
+SPOKEN_LAUGHTER = re.compile(
+    r"(?<!\w)(?:(?:ja|je|ji|jo|ju|ha)){2,}(?!\w)[\s,.:;!?-]*",
+    re.IGNORECASE,
+)
+ENTERTAINMENT_OFFER = re.compile(
+    r"\b(?:si\s+queres|te\s+puedo\s+contar|puedo\s+contarte|"
+    r"queres\s+que\s+te\s+cuente|te\s+gustaria|puedo\s+inventar|"
+    r"te\s+invento|te\s+propongo)\b",
+    re.IGNORECASE,
+)
+ENTERTAINMENT_TOPIC = re.compile(
+    r"\b(?:chiste|historia|cuento|anecdota|dialogo|juego|adivinanza|"
+    r"acertijo|trabalenguas)\b",
+    re.IGNORECASE,
+)
+GENERIC_ENTERTAINMENT_OFFER = re.compile(
+    r"\b(?:algo|otra\s+cosa)\s+mas\s+divertid[oa]\b",
+    re.IGNORECASE,
+)
+STANDALONE_PRODDING = re.compile(
+    r"^\s*(?:te\s+animas|queres\s+que\s+siga)\s*[?!.]*\s*$",
+    re.IGNORECASE,
+)
+HAN_TEXT = re.compile(r"[\u3400-\u4dbf\u4e00-\u9fff]")
+SPANISH_LANGUAGE_FALLBACK = "No te entendi. Decimelo de nuevo."
+
+
+def _fold_spoken_text(text):
+    normalized = unicodedata.normalize("NFKD", str(text or "").casefold())
+    return "".join(char for char in normalized if not unicodedata.combining(char))
+
+
+def sanitize_spoken_text(text):
+    value = SPOKEN_LAUGHTER.sub("", str(text or ""))
+    value = re.sub(r"\s{2,}", " ", value).strip()
+    if HAN_TEXT.search(value):
+        return SPANISH_LANGUAGE_FALLBACK
+    folded = _fold_spoken_text(value)
+    if (
+        ENTERTAINMENT_OFFER.search(folded)
+        and ENTERTAINMENT_TOPIC.search(folded)
+    ):
+        return ""
+    if GENERIC_ENTERTAINMENT_OFFER.search(folded):
+        return ""
+    if STANDALONE_PRODDING.match(folded):
+        return ""
+    return value
+
 
 class TTSProviderBase(ABC):
     def __init__(self, config, delete_audio_file):
@@ -39,7 +90,9 @@ class TTSProviderBase(ABC):
         self.output_file = config.get("output_dir", "tmp/")
         self.tts_timeout = int(config.get("tts_timeout", 15))
         self.tts_text_queue = queue.Queue()
-        self.tts_audio_queue = queue.Queue()
+        self.tts_audio_queue = queue.Queue(
+            maxsize=max(20, int(config.get("audio_queue_max_frames", 120)))
+        )
         self.tts_audio_first_sentence = True
         self.before_stop_play_files = []
         self.report_on_last = False
@@ -81,6 +134,7 @@ class TTSProviderBase(ABC):
         self.tts_text_buff = []
         self.punctuations = (
             "。",
+            ".",
             "？",
             "?",
             "！",
@@ -88,13 +142,11 @@ class TTSProviderBase(ABC):
             "；",
             ";",
             "：",
+            ":",
         )
         self.first_sentence_punctuations = (
-            "，",
-            "~",
-            "、",
-            ",",
             "。",
+            ".",
             "？",
             "?",
             "！",
@@ -102,6 +154,7 @@ class TTSProviderBase(ABC):
             "；",
             ";",
             "：",
+            ":",
         )
         self.tts_stop_request = False
         self.processed_chars = 0
@@ -115,12 +168,28 @@ class TTSProviderBase(ABC):
 
     def handle_opus(self, opus_data: bytes):
         logger.bind(tag=TAG).debug(f"推送数据到队列里面帧数～～ {len(opus_data)}")
-        self.tts_audio_queue.put((SentenceType.MIDDLE, opus_data, None, getattr(self, 'current_sentence_id', None)))
+        item = (
+            SentenceType.MIDDLE,
+            opus_data,
+            None,
+            getattr(self, "current_sentence_id", None),
+        )
+        while True:
+            if self.conn.stop_event.is_set() or self.conn.client_abort:
+                raise InterruptedError("Audio interrumpido por el cliente")
+            try:
+                self.tts_audio_queue.put(item, timeout=0.2)
+                return
+            except queue.Full:
+                continue
 
     def handle_audio_file(self, file_audio: bytes, text):
         self.before_stop_play_files.append((file_audio, text))
 
     def to_tts_stream(self, text, opus_handler: Callable[[bytes], None] = None) -> None:
+        text = sanitize_spoken_text(text)
+        if not text:
+            return None
         # 保留原始文本用于显示/上报
         original_text = text
         text = MarkdownCleaner.clean_markdown(text)
@@ -191,6 +260,9 @@ class TTSProviderBase(ABC):
                 return None
     
     def to_tts(self, text):
+        text = sanitize_spoken_text(text)
+        if not text:
+            return None
         # 保留原始文本用于日志/显示
         original_text = text
         text = MarkdownCleaner.clean_markdown(text)
@@ -383,6 +455,9 @@ class TTSProviderBase(ABC):
                     self.is_first_sentence = True
                     self.tts_audio_first_sentence = True
                 elif ContentType.TEXT == message.content_type:
+                    if not voice_output_enabled(self.conn):
+                        self.tts_text_buff.clear()
+                        continue
                     self.tts_text_buff.append(message.content_detail)
                     segment_text = self._get_segment_text()
                     if segment_text:
@@ -401,6 +476,9 @@ class TTSProviderBase(ABC):
                     )
 
             except queue.Empty:
+                continue
+            except InterruptedError:
+                logger.bind(tag=TAG).info("Reproduccion de audio interrumpida")
                 continue
             except Exception as e:
                 logger.bind(tag=TAG).error(
@@ -494,7 +572,7 @@ class TTSProviderBase(ABC):
         )
 
         for punct in punctuations_to_use:
-            pos = current_text.rfind(punct)
+            pos = current_text.find(punct)
             if (pos != -1 and last_punct_pos == -1) or (
                 pos != -1 and pos < last_punct_pos
             ):
@@ -502,12 +580,10 @@ class TTSProviderBase(ABC):
 
         if last_punct_pos != -1:
             segment_text_raw = current_text[: last_punct_pos + 1]
-            segment_text = textUtils.get_string_no_punctuation_or_emoji(
-                segment_text_raw
-            )
+            segment_text = textUtils.check_emoji(segment_text_raw).strip()
             self.processed_chars += len(segment_text_raw)  # 更新已处理字符位置
 
-            # 如果是第一句话，在找到第一个逗号后，将标志设置为False
+            # After the first complete clause, use the regular punctuation set.
             if self.is_first_sentence:
                 self.is_first_sentence = False
 
@@ -560,7 +636,7 @@ class TTSProviderBase(ABC):
         full_text = "".join(self.tts_text_buff)
         remaining_text = full_text[self.processed_chars :]
         if remaining_text:
-            segment_text = textUtils.get_string_no_punctuation_or_emoji(remaining_text)
+            segment_text = textUtils.check_emoji(remaining_text).strip()
             if segment_text:
                 self.to_tts_stream(segment_text, opus_handler=opus_handler)
                 self.processed_chars += len(full_text)

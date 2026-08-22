@@ -247,6 +247,199 @@ class Frame:
             x, y = (184 + i * 19) * K, (72 - i * 19) * K
             d.ellipse((x - r, y - r, x + r, y + r), fill=(190, 235, 255))
 
+    def ring(self, center=(120, 108), radius=60, width=3, alpha=180):
+        """Soft interface ring used by lifecycle and connection animations."""
+        d = ImageDraw.Draw(self.emissive)
+        cx, cy = int(center[0] * K), int(center[1] * K)
+        rp = max(1, int(radius * K))
+        d.ellipse((cx - rp, cy - rp, cx + rp, cy + rp),
+                  outline=(120, 210, 255, max(0, min(255, int(alpha)))),
+                  width=max(1, int(width * K)))
+
+    def spark(self, center, size=12, alpha=255):
+        """Four-point light spark, rendered at 2x for smooth downsampling."""
+        d = ImageDraw.Draw(self.emissive)
+        cx, cy = int(center[0] * K), int(center[1] * K)
+        sp = max(2, int(size * K))
+        color = (210, 245, 255, max(0, min(255, int(alpha))))
+        d.line((cx - sp, cy, cx + sp, cy), fill=color, width=max(2, int(2.4 * K)))
+        d.line((cx, cy - sp, cx, cy + sp), fill=color, width=max(2, int(2.4 * K)))
+        short = int(sp * 0.58)
+        d.line((cx - short, cy - short, cx + short, cy + short),
+               fill=color, width=max(1, int(1.3 * K)))
+        d.line((cx - short, cy + short, cx + short, cy - short),
+               fill=color, width=max(1, int(1.3 * K)))
+
+    def listening_waves(self, phase=0.0):
+        """Symmetric sound waves that make listening readable without text."""
+        d = ImageDraw.Draw(self.emissive)
+        for side in (-1, 1):
+            anchor_x = 58 if side < 0 else 182
+            for i in range(3):
+                pulse = (phase + i * 0.22) % 1.0
+                radius = (17 + i * 9 + pulse * 3) * K
+                cx, cy = anchor_x * K, 108 * K
+                box = (cx - radius, cy - radius, cx + radius, cy + radius)
+                alpha = int(205 * (1.0 - 0.22 * i) * (0.72 + 0.28 * math.sin(pulse * math.pi)))
+                if side < 0:
+                    d.arc(box, 112, 248, fill=(135, 220, 255, alpha), width=max(2, 2 * K))
+                else:
+                    d.arc(box, -68, 68, fill=(135, 220, 255, alpha), width=max(2, 2 * K))
+
+    def music_note(self, center, size=14, phase=0.0, alpha=230, mirrored=False):
+        """Floating eighth note for the dedicated music scene."""
+        d = ImageDraw.Draw(self.emissive)
+        cx = int(center[0] * K)
+        cy = int((center[1] + 2.5 * math.sin(phase * 2 * math.pi)) * K)
+        scale = size * K
+        direction = -1 if mirrored else 1
+        color = (150, 225, 255, max(0, min(255, int(alpha))))
+        head_w = int(scale * 0.56)
+        head_h = int(scale * 0.38)
+        d.ellipse(
+            (cx - head_w, cy - head_h, cx + head_w, cy + head_h),
+            fill=color,
+        )
+        stem_x = cx + direction * head_w
+        stem_top = cy - int(scale * 1.55)
+        d.line(
+            (stem_x, cy, stem_x, stem_top),
+            fill=color,
+            width=max(2, int(2.8 * K)),
+        )
+        flag_x1 = stem_x - direction * int(scale * 0.1)
+        flag_x2 = stem_x + direction * int(scale * 1.1)
+        d.arc(
+            (
+                min(flag_x1, flag_x2),
+                stem_top - int(scale * 0.1),
+                max(flag_x1, flag_x2),
+                stem_top + int(scale * 0.8),
+            ),
+            190 if mirrored else 270,
+            350 if mirrored else 90,
+            fill=color,
+            width=max(2, int(2.6 * K)),
+        )
+
+    def music_equalizer(self, phase=0.0):
+        """Side equalizer bars that leave the face and subtitle unobstructed."""
+        d = ImageDraw.Draw(self.emissive)
+        for side in (-1, 1):
+            for index in range(4):
+                energy = 0.5 + 0.5 * math.sin(
+                    phase * 2 * math.pi * 2 + index * 1.35 + side * 0.4
+                )
+                height = (15 + 31 * energy) * K
+                x = (24 + index * 9) * K if side < 0 else (216 - index * 9) * K
+                y = 188 * K
+                half_w = max(2, int(2.4 * K))
+                d.rounded_rectangle(
+                    (x - half_w, y - height, x + half_w, y),
+                    radius=half_w,
+                    fill=(105, 205, 255, 125 + int(110 * energy)),
+                )
+
+    def guitar(self, phase=0.0, sway=0.0):
+        """Warm electric-acoustic guitar with two animated robot arms."""
+        d = ImageDraw.Draw(self.emissive)
+        bob = 1.3 * math.sin(phase * 2 * math.pi)
+        shift = sway * 0.32
+
+        def point(x, y):
+            return (int((x + shift) * K), int((y + bob) * K))
+
+        gold = (255, 163, 64, 245)
+        gold_light = (255, 218, 128, 255)
+        gold_dark = (170, 70, 26, 255)
+        cyan = (145, 225, 255, 245)
+        ink = (18, 25, 43, 255)
+
+        # Neck first so the body and hands sit naturally in front of it.
+        neck_start = point(116, 166)
+        neck_end = point(197, 126)
+        d.line((neck_start, neck_end), fill=gold_dark, width=13 * K)
+        d.line((neck_start, neck_end), fill=gold_light, width=8 * K)
+        head = point(202, 123)
+        d.ellipse(
+            (head[0] - 8 * K, head[1] - 7 * K, head[0] + 8 * K, head[1] + 7 * K),
+            fill=gold,
+        )
+
+        # Two overlapping bouts and a narrow waist make the silhouette readable.
+        upper = point(102, 169)
+        lower = point(102, 188)
+        d.ellipse(
+            (upper[0] - 24 * K, upper[1] - 20 * K,
+             upper[0] + 24 * K, upper[1] + 20 * K),
+            fill=gold,
+        )
+        d.ellipse(
+            (lower[0] - 30 * K, lower[1] - 24 * K,
+             lower[0] + 30 * K, lower[1] + 24 * K),
+            fill=gold,
+        )
+        d.polygon(
+            [point(82, 165), point(124, 160), point(129, 194), point(76, 197)],
+            fill=gold,
+        )
+        d.arc(
+            (lower[0] - 27 * K, lower[1] - 21 * K,
+             lower[0] + 27 * K, lower[1] + 21 * K),
+            18,
+            198,
+            fill=gold_light,
+            width=3 * K,
+        )
+
+        sound = point(106, 178)
+        d.ellipse(
+            (sound[0] - 11 * K, sound[1] - 11 * K,
+             sound[0] + 11 * K, sound[1] + 11 * K),
+            fill=ink,
+            outline=gold_light,
+            width=2 * K,
+        )
+        bridge_left = point(82, 191)
+        bridge_right = point(109, 191)
+        d.line((bridge_left, bridge_right), fill=gold_dark, width=4 * K)
+
+        # Three strings remain visible across body, neck and headstock.
+        for offset in (-2, 0, 2):
+            start = point(85, 186 + offset)
+            end = point(204, 122 + offset)
+            d.line((start, end), fill=(235, 245, 255, 215), width=max(1, K))
+
+        # Frets reinforce the neck direction without making the small scene busy.
+        for index in range(4):
+            ratio = 0.34 + index * 0.14
+            x = 116 + (197 - 116) * ratio
+            y = 166 + (126 - 166) * ratio
+            d.line((point(x - 2, y - 5), point(x + 3, y + 5)), fill=gold_dark, width=2 * K)
+
+        # Left hand grips the neck; right hand visibly strums on every beat.
+        fret_hand = point(154, 147)
+        d.line((point(172, 160), fret_hand), fill=cyan, width=8 * K)
+        d.ellipse(
+            (fret_hand[0] - 6 * K, fret_hand[1] - 6 * K,
+             fret_hand[0] + 6 * K, fret_hand[1] + 6 * K),
+            fill=cyan,
+        )
+
+        strum = 8.0 * math.sin(phase * 2 * math.pi * 4)
+        strum_hand = point(105, 177 + strum)
+        d.line((point(61, 161), strum_hand), fill=cyan, width=8 * K)
+        d.ellipse(
+            (strum_hand[0] - 6 * K, strum_hand[1] - 6 * K,
+             strum_hand[0] + 6 * K, strum_hand[1] + 6 * K),
+            fill=cyan,
+        )
+        motion_alpha = int(120 + 100 * abs(math.sin(phase * 2 * math.pi * 4)))
+        for offset in (-7, 7):
+            start = point(116 + offset, 171 + strum * 0.35)
+            end = point(121 + offset, 181 + strum * 0.35)
+            d.line((start, end), fill=(180, 235, 255, motion_alpha), width=2 * K)
+
     def tongue(self, wig=0.0, dy=0.0):
         wp, hp = int(30 * K), int(26 * K)
         m = rounded_mask(wp, hp, int(13 * K))
@@ -566,7 +759,194 @@ def anim_delicious():
     return seq
 
 
+# ============================ PRODUCT LIFECYCLE ============================
+
+def anim_boot():
+    """A one-shot reveal: spark, energy ring, eye assembly, blink and smile."""
+    seq = []
+    for i in range(7):
+        t = ease(i / 6.0)
+        fr = Frame()
+        fr.ring(radius=8 + 82 * t, width=2.5 + 2 * (1 - t),
+                alpha=int(230 * (1 - 0.75 * t)))
+        fr.spark((120, 108), size=4 + 17 * t, alpha=int(255 * (1 - 0.45 * t)))
+        seq.append((fr, 70))
+
+    for i in range(12):
+        t = ease(i / 11.0)
+        split = 1.0 - t
+        opening = 0.06 + 0.94 * t
+        scale = 0.42 + 0.58 * t
+        fr = F(l=dict(dx=46 * split, squash=opening, scale=scale),
+               r=dict(dx=-46 * split, squash=opening, scale=scale),
+               m=dict(kind="line", w=12 + 30 * t, curve=1 + 5 * t,
+                      thick=5 + 5 * t, dy=8 * split))
+        fr.ring(radius=94 - 22 * t, width=2.2, alpha=int(120 * (1 - t)))
+        if i in (4, 8, 11):
+            fr.spark((34 + i * 13, 54 + (i % 2) * 106), size=5 + i / 3,
+                     alpha=180)
+        seq.append((fr, 70))
+
+    for i in range(8):
+        t = i / 7.0
+        blink = 1.0 - 0.88 * max(0.0, math.sin(t * math.pi * 2))
+        bounce = math.sin(t * math.pi) * 2.5
+        fr = F(l=dict(squash=blink, dy=-bounce),
+               r=dict(squash=blink, dy=-bounce),
+               m=dict(kind="line", w=48, curve=7, thick=10, dy=-bounce))
+        if i in (1, 5):
+            fr.spark((35 if i == 1 else 205, 54), size=9, alpha=210)
+        seq.append((fr, 75))
+    seq.append((F(m=dict(kind="line", w=42, curve=5, thick=10)), 550))
+    return seq
+
+
+def anim_wake():
+    """Closed eyes stretch open, focus, then settle into a warm expression."""
+    seq = []
+    for i in range(15):
+        t = ease(i / 14.0)
+        overshoot = 0.09 * math.sin(t * math.pi)
+        opening = min(1.08, 0.06 + 0.94 * t + overshoot)
+        stretch = 1.0 + 0.08 * math.sin(t * math.pi)
+        fr = F(l=dict(squash=opening, scale=stretch, dy=7 * (1 - t), dx=-3 * (1 - t)),
+               r=dict(squash=opening, scale=stretch, dy=7 * (1 - t), dx=3 * (1 - t)),
+               m=dict(kind="line", w=18 + 26 * t, curve=1 + 5 * t,
+                      thick=7 + 3 * t, dy=5 * (1 - t)))
+        if i in (9, 12):
+            fr.spark((38 if i == 9 else 201, 58), size=8, alpha=190)
+        seq.append((fr, 75))
+    seq.append((F(m=dict(kind="line", w=42, curve=5, thick=10)), 350))
+    return seq
+
+
+def anim_dozing():
+    """A gentle transition into the looping sleepy state."""
+    seq = []
+    for i in range(14):
+        t = ease(i / 13.0)
+        opening = max(0.14, 1.0 - 0.82 * t)
+        fr = F(l=dict(squash=opening, lid=0.42 * t, dy=7 * t),
+               r=dict(squash=opening, lid=0.42 * t, dy=7 * t),
+               m=dict(kind="line", w=40 - 15 * t, curve=4 - 2 * t,
+                      thick=9, dy=5 * t))
+        if i >= 7:
+            fr.zzz((i - 7) / 14.0)
+        seq.append((fr, 90))
+    seq.append((F(l=dict(squash=0.18, lid=0.4, dy=7),
+                         r=dict(squash=0.18, lid=0.4, dy=7),
+                         m=dict(kind="line", w=25, curve=2, thick=8, dy=5)), 450))
+    return seq
+
+
+def anim_goodnight():
+    """Farewell animation that ends on black before the power rail is cut."""
+    seq = []
+    for i in range(18):
+        t = ease(i / 17.0)
+        opening = max(0.05, 1.0 - 0.95 * t)
+        fr = F(l=dict(squash=opening, lid=0.48 * t, dy=8 * t, scale=1 - 0.08 * t),
+               r=dict(squash=opening, lid=0.48 * t, dy=8 * t, scale=1 - 0.08 * t),
+               m=dict(kind="line", w=max(8, 44 - 34 * t), curve=5 * (1 - t),
+                      thick=max(5, 10 - 4 * t), dy=7 * t))
+        if 4 <= i <= 13:
+            fr.spark((198 - (i - 4) * 4, 48 + (i - 4) * 3),
+                     size=max(3, 9 - (i - 4) * 0.6), alpha=int(210 * (1 - t)))
+        seq.append((fr, 80))
+    final_spark = Frame()
+    final_spark.spark((120, 114), size=4, alpha=95)
+    seq.append((final_spark, 260))
+    seq.append((Frame(), 1050))
+    return seq
+
+
+def anim_listening():
+    seq = []
+    for i in range(12):
+        t = i / 12.0
+        pulse = 0.5 + 0.5 * math.sin(t * 2 * math.pi)
+        fr = F(l=dict(scale=1.02 + 0.035 * pulse, dx=-1.5 * pulse),
+               r=dict(scale=1.02 + 0.035 * pulse, dx=1.5 * pulse),
+               m=dict(kind="line", w=31, curve=3, thick=9))
+        fr.listening_waves(t)
+        seq.append((fr, 90))
+    return seq
+
+
+def anim_speaking():
+    seq = []
+    for i in range(12):
+        t = i / 12.0
+        voice = 0.5 + 0.5 * math.sin(t * 2 * math.pi * 2)
+        sway = 1.6 * math.sin(t * 2 * math.pi)
+        seq.append((F(l=dict(squash=0.94 + 0.05 * voice, dy=-sway),
+                      r=dict(squash=0.94 + 0.05 * voice, dy=-sway),
+                      m=dict(kind="open", w=34 + 18 * voice,
+                             open_h=9 + 12 * voice, center=(120, 174), dy=sway)), 75))
+    return seq
+
+
+def anim_music():
+    seq = []
+    for i in range(20):
+        t = i / 20.0
+        beat = 0.5 + 0.5 * math.sin(t * 2 * math.pi * 2)
+        sway = 2.4 * math.sin(t * 2 * math.pi)
+        lift = -1.8 * beat
+        fr = F(
+            l=dict(crescent=True, squash=0.92, dx=sway, dy=lift, rot=-sway),
+            r=dict(crescent=True, squash=0.92, dx=sway, dy=lift, rot=-sway),
+            m=dict(kind="line", center=(120, 144), w=34,
+                   curve=5 + 2 * beat, thick=7,
+                   dx=sway * 0.4, dy=lift * 0.4, tilt=-sway * 0.4),
+        )
+        fr.guitar(t, sway=sway)
+        fr.music_note((38, 58), size=11 + 2 * beat, phase=t, alpha=205)
+        fr.music_note((199, 52), size=13 + 2 * (1 - beat), phase=t + 0.4,
+                      alpha=235, mirrored=True)
+        seq.append((fr, 80))
+    return seq
+
+
+def anim_connecting():
+    seq = []
+    for i in range(14):
+        t = i / 14.0
+        scan = math.sin(t * 2 * math.pi)
+        fr = F(l=dict(dx=8 * scan, squash=0.88),
+               r=dict(dx=8 * scan, squash=0.88),
+               m=dict(kind="wavy", w=30, amp=2.0, thick=8, phase=t, dx=4 * scan))
+        fr.ring(radius=88 + 7 * math.sin(t * 2 * math.pi), width=2,
+                alpha=75 + int(45 * (0.5 + 0.5 * scan)))
+        fr.dots(1 + (i // 3) % 3)
+        seq.append((fr, 100))
+    return seq
+
+
+def anim_curious():
+    seq = []
+    for i in range(12):
+        t = i / 12.0
+        tilt = math.sin(t * 2 * math.pi)
+        fr = F(l=dict(scale=1.08 + 0.04 * tilt, rot=3 * tilt, dy=-2),
+               r=dict(scale=0.88 - 0.03 * tilt, rot=-4 * tilt, dy=4),
+               m=dict(kind="line", w=34, curve=3, smirk=5, thick=9, tilt=3 * tilt))
+        if i in (2, 8):
+            fr.spark((198 if i == 2 else 43, 55), size=8, alpha=190)
+        seq.append((fr, 100))
+    return seq
+
+
 EMOTIONS = {
+    "boot": anim_boot,
+    "wake": anim_wake,
+    "dozing": anim_dozing,
+    "goodnight": anim_goodnight,
+    "listening": anim_listening,
+    "speaking": anim_speaking,
+    "music": anim_music,
+    "connecting": anim_connecting,
+    "curious": anim_curious,
     "neutral": anim_neutral,
     "robot_2": anim_neutral,
     "happy": anim_happy,

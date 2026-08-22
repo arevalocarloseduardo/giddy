@@ -15,6 +15,7 @@ from core.handle.textMessageHandler import TextMessageHandler
 from core.handle.textMessageType import TextMessageType
 from core.utils.util import remove_punctuation_and_length
 from core.providers.tts.dto.dto import ContentType, TTSMessageDTO, SentenceType
+from core.product_settings import ProductSettings
 
 
 TAG = __name__
@@ -58,6 +59,19 @@ class ListenTextMessageHandler(TextMessageHandler):
             if "text" in msg_json:
                 conn.last_activity_time = time.time() * 1000
                 original_text = msg_json["text"]  # 保留原始文本
+                if original_text.startswith("[giddy_action:") and original_text.endswith("]"):
+                    action_id = original_text[len("[giddy_action:"):-1].strip()
+                    selected_llm = conn.config.get("selected_module", {}).get("LLM", "")
+                    llm_config = conn.config.get("LLM", {}).get(selected_llm, {})
+                    action = ProductSettings(llm_config.get("settings_path")).resolve_quick_action(action_id)
+                    if action:
+                        original_text = action["prompt"]
+                        conn.logger.bind(tag=TAG).info(f"Accion rapida Giddy: {action_id}")
+                    else:
+                        conn.logger.bind(tag=TAG).warning(
+                            f"Accion rapida Giddy desconocida: {action_id}"
+                        )
+                        return
                 filtered_len, filtered_text = remove_punctuation_and_length(
                     original_text
                 )

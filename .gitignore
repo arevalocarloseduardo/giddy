@@ -1,7 +1,7 @@
 # --- Repos de terceros (3.7 GB): se clonan aparte, ver docs/03 y docs/04 ---
-ESP32-S3-Touch-LCD-1.54/
-xiaozhi-esp32/
-xiaozhi-esp32-server/
+/ESP32-S3-Touch-LCD-1.54/
+/xiaozhi-esp32/
+/xiaozhi-esp32-server/
 
 # --- SECRETOS: nunca commitear claves reales ---
 # La config real vive dentro del server (gitignoreada por su propio repo).
@@ -26,6 +26,32 @@ __pycache__/
 !firmware-ota/*.bin
 models/
 tmp/
+server/data/server.log
+server/data/server.log.err
+server/data/server.pid
+server/data/giddy-product.json
+server/data/giddy-routing.jsonl
+server/data/giddy-routing.previous.jsonl
+server/data/giddy-voice.jsonl
+server/data/giddy-voice.previous.jsonl
+server/data/giddy-voice-cache/
+server/data/giddy-setup-token.txt
+server/data/watchdog.log
+server/native/*.exe
 
 # --- macOS ---
 .DS_Store
+
+# --- Artefactos locales y dependencias (no van al repo) ---
+.codebase-memory/
+.tools/
+firmware/build-docker/
+node_modules/
+dist/
+*.tsbuildinfo
+site/db/
+site/dev.stdout.log
+site/dev.stderr.log
+server/tmp-stt-test.wav
+site/.git.bak/
+.next/

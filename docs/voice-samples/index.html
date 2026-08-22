@@ -1,0 +1,409 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Voces de Giddy</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f3f5f6;
+      --surface: #ffffff;
+      --ink: #172026;
+      --muted: #627078;
+      --line: #d9e0e3;
+      --strong: #10181d;
+      --green: #177455;
+      --green-soft: #e7f4ee;
+      --amber: #8d5600;
+      --amber-soft: #fff2d6;
+      --coral: #a83c35;
+      --focus: #087a8c;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+        "Segoe UI", sans-serif;
+      letter-spacing: 0;
+    }
+
+    button, input, select { font: inherit; letter-spacing: 0; }
+
+    .shell {
+      width: min(1040px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 36px 0 88px;
+    }
+
+    header {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 24px;
+      padding-bottom: 24px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(30px, 4rem, 46px);
+      line-height: 1.05;
+      font-weight: 760;
+    }
+
+    .subtitle {
+      margin: 9px 0 0;
+      color: var(--muted);
+      font-size: 15px;
+      line-height: 1.5;
+    }
+
+    .counter {
+      min-width: 128px;
+      padding-left: 18px;
+      border-left: 3px solid var(--coral);
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.35;
+    }
+
+    .counter strong {
+      display: block;
+      color: var(--ink);
+      font-size: 24px;
+      line-height: 1;
+    }
+
+    .toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 20px 0;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 4px;
+      overflow-x: auto;
+      padding: 2px;
+    }
+
+    .tab {
+      min-height: 38px;
+      padding: 0 14px;
+      border: 1px solid transparent;
+      border-radius: 6px;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .tab:hover { background: #e8edef; color: var(--ink); }
+    .tab.active { background: var(--strong); color: #fff; }
+
+    select {
+      min-height: 38px;
+      padding: 0 34px 0 12px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--surface);
+      color: var(--ink);
+    }
+
+    .list {
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--surface);
+    }
+
+    .voice-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(290px, 370px);
+      gap: 24px;
+      align-items: center;
+      min-height: 112px;
+      padding: 18px 20px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .voice-row:last-child { border-bottom: 0; }
+    .voice-row:hover { background: #fafcfc; }
+    .voice-row.is-favorite { box-shadow: inset 4px 0 var(--focus); }
+
+    .identity {
+      display: grid;
+      grid-template-columns: 24px minmax(0, 1fr);
+      gap: 12px;
+      align-items: start;
+    }
+
+    .favorite {
+      width: 18px;
+      height: 18px;
+      margin: 3px 0 0;
+      accent-color: var(--focus);
+      cursor: pointer;
+    }
+
+    .title-line {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    h2 {
+      margin: 0;
+      font-size: 17px;
+      line-height: 1.35;
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      min-height: 22px;
+      padding: 0 7px;
+      border-radius: 4px;
+      background: #eef2f3;
+      color: #4f5d64;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .tag.recommended { background: var(--green-soft); color: var(--green); }
+    .tag.current { background: var(--amber-soft); color: var(--amber); }
+
+    .note {
+      margin: 6px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .technical {
+      margin: 5px 0 0;
+      color: #819097;
+      font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+      font-size: 11px;
+      overflow-wrap: anywhere;
+    }
+
+    audio {
+      display: block;
+      width: 100%;
+      height: 40px;
+    }
+
+    .empty {
+      padding: 48px 20px;
+      color: var(--muted);
+      text-align: center;
+    }
+
+    .selection {
+      position: fixed;
+      left: 50%;
+      bottom: 16px;
+      z-index: 5;
+      display: flex;
+      width: min(660px, calc(100% - 32px));
+      min-height: 52px;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 10px 14px;
+      border: 1px solid #2b373d;
+      border-radius: 8px;
+      background: #111a1f;
+      color: #fff;
+      box-shadow: 0 8px 24px rgb(14 24 30 / 18%);
+      transform: translateX(-50%);
+    }
+
+    .selection small { display: block; color: #aebbc1; }
+    .selection strong { display: block; margin-top: 2px; }
+
+    .clear {
+      min-height: 34px;
+      padding: 0 11px;
+      border: 1px solid #52616a;
+      border-radius: 5px;
+      background: transparent;
+      color: #fff;
+      cursor: pointer;
+    }
+
+    .clear:hover { background: #243138; }
+
+    :focus-visible { outline: 3px solid rgb(8 122 140 / 35%); outline-offset: 2px; }
+
+    @media (max-width: 720px) {
+      .shell { width: min(100% - 20px, 1040px); padding-top: 22px; }
+      header { align-items: start; }
+      .counter { display: none; }
+      .toolbar { align-items: stretch; flex-direction: column; }
+      .voice-row { grid-template-columns: 1fr; gap: 13px; padding: 17px 14px; }
+      .selection { bottom: 10px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { scroll-behavior: auto !important; }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header>
+      <div>
+        <h1>Voces de Giddy</h1>
+        <p class="subtitle">La misma frase en cada muestra. La opci&oacute;n marcada se guarda en este navegador.</p>
+      </div>
+      <div class="counter"><strong id="visible-count">15</strong> voces disponibles</div>
+    </header>
+
+    <div class="toolbar">
+      <nav class="tabs" aria-label="Filtrar por acento">
+        <button class="tab active" type="button" data-accent="all">Todas</button>
+        <button class="tab" type="button" data-accent="AR">Argentina</button>
+        <button class="tab" type="button" data-accent="UY">Uruguay</button>
+        <button class="tab" type="button" data-accent="MX">M&eacute;xico</button>
+        <button class="tab" type="button" data-accent="ES">Espa&ntilde;a</button>
+        <button class="tab" type="button" data-accent="US">EE. UU.</button>
+      </nav>
+      <label>
+        <span hidden>Car&aacute;cter</span>
+        <select id="style-filter" aria-label="Filtrar por car&aacute;cter">
+          <option value="all">Todos los estilos</option>
+          <option value="natural">Natural</option>
+          <option value="warm">C&aacute;lida</option>
+          <option value="young">Juvenil</option>
+          <option value="robot">Robot suave</option>
+        </select>
+      </label>
+    </div>
+
+    <section class="list" id="voice-list" aria-live="polite"></section>
+  </main>
+
+  <aside class="selection" id="selection" hidden>
+    <div><small>Mi favorita</small><strong id="selection-name"></strong></div>
+    <button class="clear" id="clear-favorite" type="button">Quitar</button>
+  </aside>
+
+  <script>
+    const voices = [
+      {id:"elena-ar-natural",name:"Elena Argentina",accent:"AR",gender:"Mujer",style:"natural",rate:"+4%",pitch:"0 Hz",file:"elena-ar-natural.mp3",note:"Natural, clara y cercana. La primera recomendaci&oacute;n.",recommended:true},
+      {id:"valentina-uy-natural",name:"Valentina Uruguay",accent:"UY",gender:"Mujer",style:"natural",rate:"+4%",pitch:"0 Hz",file:"valentina-uy-natural.mp3",note:"Suave y amable, con acento rioplatense.",recommended:true},
+      {id:"tomas-ar-joven",name:"Tom&aacute;s Argentina juvenil",accent:"AR",gender:"Var&oacute;n",style:"young",rate:"+10%",pitch:"+18 Hz",file:"tomas-ar-joven.mp3",note:"M&aacute;s liviana y r&aacute;pida que la voz actual.",recommended:true},
+      {id:"valentina-uy-joven",name:"Valentina Uruguay juvenil",accent:"UY",gender:"Mujer",style:"young",rate:"+9%",pitch:"+12 Hz",file:"valentina-uy-joven.mp3",note:"Energ&eacute;tica sin llegar a sonar infantil."},
+      {id:"elena-ar-calida",name:"Elena Argentina c&aacute;lida",accent:"AR",gender:"Mujer",style:"warm",rate:"-2%",pitch:"-2 Hz",file:"elena-ar-calida.mp3",note:"M&aacute;s pausada y serena para conversaciones largas."},
+      {id:"tomas-ar-robot-suave",name:"Tom&aacute;s robot suave",accent:"AR",gender:"Var&oacute;n",style:"robot",rate:"+7%",pitch:"+22 Hz",file:"tomas-ar-robot-suave.mp3",note:"Identidad de robot, con menos gravedad que la actual."},
+      {id:"tomas-ar-natural",name:"Tom&aacute;s Argentina natural",accent:"AR",gender:"Var&oacute;n",style:"natural",rate:"+4%",pitch:"0 Hz",file:"tomas-ar-natural.mp3",note:"La voz argentina base, sin el efecto actual."},
+      {id:"actual-tomas-robot",name:"Voz actual",accent:"AR",gender:"Var&oacute;n",style:"robot",rate:"+5%",pitch:"+8 Hz",file:"actual-tomas-robot.mp3",note:"Referencia para comparar con lo que escuch&aacute;s hoy.",current:true},
+      {id:"mateo-uy-natural",name:"Mateo Uruguay",accent:"UY",gender:"Var&oacute;n",style:"natural",rate:"+4%",pitch:"0 Hz",file:"mateo-uy-natural.mp3",note:"Rioplatense, directa y de tono medio."},
+      {id:"dalia-mx-natural",name:"Dalia M&eacute;xico",accent:"MX",gender:"Mujer",style:"natural",rate:"+4%",pitch:"0 Hz",file:"dalia-mx-natural.mp3",note:"Clara, expresiva y neutral para Latinoam&eacute;rica."},
+      {id:"jorge-mx-natural",name:"Jorge M&eacute;xico",accent:"MX",gender:"Var&oacute;n",style:"natural",rate:"+4%",pitch:"0 Hz",file:"jorge-mx-natural.mp3",note:"Voz masculina estable y comprensible."},
+      {id:"paloma-us-natural",name:"Paloma EE. UU.",accent:"US",gender:"Mujer",style:"natural",rate:"+4%",pitch:"0 Hz",file:"paloma-us-natural.mp3",note:"Espa&ntilde;ol latino suave y neutral."},
+      {id:"alonso-us-natural",name:"Alonso EE. UU.",accent:"US",gender:"Var&oacute;n",style:"natural",rate:"+4%",pitch:"0 Hz",file:"alonso-us-natural.mp3",note:"Espa&ntilde;ol latino de tono firme."},
+      {id:"elvira-es-natural",name:"Elvira Espa&ntilde;a",accent:"ES",gender:"Mujer",style:"natural",rate:"+4%",pitch:"0 Hz",file:"elvira-es-natural.mp3",note:"Acento espa&ntilde;ol claro y natural."},
+      {id:"alvaro-es-natural",name:"&Aacute;lvaro Espa&ntilde;a",accent:"ES",gender:"Var&oacute;n",style:"natural",rate:"+4%",pitch:"0 Hz",file:"alvaro-es-natural.mp3",note:"Acento espa&ntilde;ol masculino y sobrio."}
+    ];
+
+    const list = document.querySelector("#voice-list");
+    const selection = document.querySelector("#selection");
+    const selectionName = document.querySelector("#selection-name");
+    const styleFilter = document.querySelector("#style-filter");
+    let accent = "all";
+    let favorite = localStorage.getItem("giddyFavoriteVoice") || "";
+
+    function labelForStyle(style) {
+      return {natural:"Natural",warm:"C&aacute;lida",young:"Juvenil",robot:"Robot suave"}[style];
+    }
+
+    function updateSelection() {
+      const selected = voices.find((voice) => voice.id === favorite);
+      selection.hidden = !selected;
+      if (selected) selectionName.innerHTML = selected.name;
+    }
+
+    function chooseFavorite(id) {
+      favorite = id;
+      localStorage.setItem("giddyFavoriteVoice", id);
+      document.querySelectorAll(".voice-row").forEach((row) => {
+        row.classList.toggle("is-favorite", row.dataset.id === id);
+      });
+      updateSelection();
+    }
+
+    function render() {
+      const style = styleFilter.value;
+      const shown = voices.filter((voice) =>
+        (accent === "all" || voice.accent === accent) &&
+        (style === "all" || voice.style === style)
+      );
+      document.querySelector("#visible-count").textContent = shown.length;
+      if (!shown.length) {
+        list.innerHTML = '<div class="empty">No hay voces con estos filtros.</div>';
+        return;
+      }
+      list.innerHTML = shown.map((voice) => `
+        <article class="voice-row ${voice.id === favorite ? "is-favorite" : ""}" data-id="${voice.id}">
+          <div class="identity">
+            <input class="favorite" type="radio" name="favorite" value="${voice.id}" ${voice.id === favorite ? "checked" : ""} aria-label="Marcar ${voice.name.replace(/<[^>]*>/g, "")} como favorita">
+            <div>
+              <div class="title-line">
+                <h2>${voice.name}</h2>
+                ${voice.recommended ? '<span class="tag recommended">Recomendada</span>' : ""}
+                ${voice.current ? '<span class="tag current">Actual</span>' : ""}
+                <span class="tag">${voice.gender}</span>
+                <span class="tag">${labelForStyle(voice.style)}</span>
+              </div>
+              <p class="note">${voice.note}</p>
+              <p class="technical">${voice.id} &middot; velocidad ${voice.rate} &middot; tono ${voice.pitch}</p>
+            </div>
+          </div>
+          <audio controls preload="metadata" src="audio/${voice.file}"></audio>
+        </article>
+      `).join("");
+
+      document.querySelectorAll("audio").forEach((player) => {
+        player.addEventListener("play", () => {
+          document.querySelectorAll("audio").forEach((other) => {
+            if (other !== player) other.pause();
+          });
+        });
+      });
+      document.querySelectorAll(".favorite").forEach((radio) => {
+        radio.addEventListener("change", () => chooseFavorite(radio.value));
+      });
+    }
+
+    document.querySelectorAll(".tab").forEach((tab) => {
+      tab.addEventListener("click", () => {
+        accent = tab.dataset.accent;
+        document.querySelectorAll(".tab").forEach((item) => item.classList.toggle("active", item === tab));
+        render();
+      });
+    });
+    styleFilter.addEventListener("change", render);
+    document.querySelector("#clear-favorite").addEventListener("click", () => {
+      favorite = "";
+      localStorage.removeItem("giddyFavoriteVoice");
+      render();
+      updateSelection();
+    });
+
+    render();
+    updateSelection();
+  </script>
+</body>
+</html>

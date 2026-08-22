@@ -8,6 +8,7 @@ if TYPE_CHECKING:
 from core.utils.util import audio_to_data
 from core.handle.abortHandle import handleAbortMessage
 from core.handle.intentHandler import handle_user_intent
+from core.interaction_guard import discard_blocked_audio
 from core.utils.output_counter import check_device_output_limit
 from core.handle.sendAudioHandle import send_stt_message, SentenceType
 
@@ -15,6 +16,9 @@ TAG = __name__
 
 
 async def handleAudioMessage(conn: "ConnectionHandler", pcm_frame):
+    if discard_blocked_audio(conn, "flujo de microfono"):
+        return
+
     # Once a command has been accepted in single-turn mode, discard the
     # remaining microphone stream until the answer finishes and the connection
     # closes. Otherwise a pause inside the same phrase can become a second ASR
@@ -25,12 +29,17 @@ async def handleAudioMessage(conn: "ConnectionHandler", pcm_frame):
     # 当前片段是否有人说话
     have_voice = conn.vad.is_vad(conn, pcm_frame)
     # 如果设备刚刚被唤醒，短暂忽略VAD检测
-    if hasattr(conn, "just_woken_up") and conn.just_woken_up:
-        have_voice = False
-        # 设置一个短暂延迟后恢复VAD检测
-        if not hasattr(conn, "vad_resume_task") or conn.vad_resume_task.done():
-            conn.vad_resume_task = asyncio.create_task(resume_vad_detection(conn))
-        return
+    if getattr(conn, "just_woken_up", False):
+        conn.just_woken_up = False
+
+    turn_checker = getattr(conn.vad, "should_end_turn", None)
+    if turn_checker is not None:
+        try:
+            await turn_checker(conn, have_voice)
+        except Exception as exc:
+            conn.logger.bind(tag=TAG).warning(
+                "No se pudo evaluar Smart Turn; continua el VAD clasico: {}", exc
+            )
     # 服务端AEC功能需要实时触发打断
     if conn.client_aec and have_voice:
         if conn.client_is_speaking and conn.client_listen_mode != "manual":
@@ -41,13 +50,10 @@ async def handleAudioMessage(conn: "ConnectionHandler", pcm_frame):
     await conn.asr.receive_audio(conn, pcm_frame, have_voice)
 
 
-async def resume_vad_detection(conn: "ConnectionHandler"):
-    # 等待2秒后恢复VAD检测
-    await asyncio.sleep(2)
-    conn.just_woken_up = False
-
-
 async def startToChat(conn: "ConnectionHandler", text):
+    if discard_blocked_audio(conn, "transcripcion"):
+        return
+
     single_turn_mode = conn.config.get("single_turn_mode", False)
     if single_turn_mode and conn.single_turn_active:
         conn.logger.bind(tag=TAG).info(

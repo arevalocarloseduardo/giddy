@@ -43,6 +43,33 @@ def _is_higher_version(a: str, b: str) -> bool:
     return False
 
 
+def _giddy_assets_payload(config: dict, device_model: str = "", device_id: str = ""):
+    from core.giddy_firmware import giddy_asset_url, resolve_giddy_firmware
+
+    plugin = config.get("plugins", {}).get("giddy_assets", {})
+    version = str(plugin.get("version", "")).strip()
+    filename = str(plugin.get("filename", "")).strip()
+    if not bool(plugin.get("enabled", False)) or not version:
+        return None
+    if str(plugin.get("delivery", "ota")).strip().casefold() != "ota":
+        return None
+    allowed_models = plugin.get("device_models", ["esp32-s3-touch-lcd-1.54"])
+    if device_model not in {str(value).strip() for value in allowed_models}:
+        return None
+    allowed_devices = {
+        str(value).strip().casefold() for value in plugin.get("device_ids", [])
+    }
+    if allowed_devices and device_id.strip().casefold() not in allowed_devices:
+        return None
+    if not resolve_giddy_firmware(filename):
+        return None
+    return {
+        "version": version,
+        "url": giddy_asset_url(config, filename),
+        "expected_charset": str(plugin.get("expected_charset", "common")).strip(),
+    }
+
+
 class OTAHandler(BaseHandler):
     def __init__(self, config: dict):
         super().__init__(config)
@@ -230,6 +257,9 @@ class OTAHandler(BaseHandler):
                     "url": "",
                 },
             }
+            assets_payload = _giddy_assets_payload(self.config, device_model, device_id)
+            if assets_payload:
+                return_json["assets"] = assets_payload
 
             # existing mqtt/websocket logic (unchanged)
             mqtt_gateway_endpoint = server_config.get("mqtt_gateway")

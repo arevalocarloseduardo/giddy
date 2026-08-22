@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark" />
+    <title>Giddy Avatar Studio</title>
+    <link rel="stylesheet" href="./studio.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="#top" aria-label="Giddy Avatar Studio">
+        <span class="brand-face" aria-hidden="true"><i></i><i></i></span>
+        <span>Giddy <strong>Avatar Studio</strong></span>
+      </a>
+      <div class="meta" aria-label="Formato de salida">
+        <span>V2.0</span>
+        <span>240 x 240</span>
+        <span>RGB565</span>
+      </div>
+    </header>
+
+    <main id="top">
+      <section class="stage-band" aria-labelledby="emotion-title">
+        <div class="stage-copy">
+          <p class="eyebrow">Coleccion activa</p>
+          <h1 id="emotion-title">Neutral</h1>
+          <p id="emotion-role">Presencia atenta, tranquila y disponible.</p>
+
+          <div class="variant-tabs" role="tablist" aria-label="Variantes de personaje">
+            <button type="button" class="is-active" role="tab" aria-selected="true" data-variant="core">Core</button>
+            <button type="button" role="tab" aria-selected="false" data-variant="soft">Soft</button>
+            <button type="button" role="tab" aria-selected="false" data-variant="focus">Focus</button>
+          </div>
+        </div>
+
+        <div class="device-stage">
+          <div class="device-shell">
+            <div class="screen">
+              <img id="avatar" src="../output/giddy-v2-core-240/neutral.gif" width="240" height="240" alt="Animacion neutral de Giddy" />
+            </div>
+            <div class="speaker" aria-hidden="true"></div>
+          </div>
+          <div class="stage-shadow" aria-hidden="true"></div>
+        </div>
+
+        <div class="selection-meta">
+          <div><span>Variante</span><strong id="variant-name">Core</strong></div>
+          <div><span>Estado</span><strong id="state-name">neutral.gif</strong></div>
+          <a id="download-link" href="../output/giddy-v2-core-240/neutral.gif" download>Descargar GIF</a>
+        </div>
+      </section>
+
+      <section class="library-band" aria-labelledby="library-title">
+        <div class="library-heading">
+          <div>
+            <p class="eyebrow">Contrato emocional</p>
+            <h2 id="library-title">31 estados, una sola identidad.</h2>
+          </div>
+          <span id="library-count">31 animaciones</span>
+        </div>
+        <div id="emotion-grid" class="emotion-grid"></div>
+      </section>
+    </main>
+
+    <script src="./studio.js"></script>
+  </body>
+</html>

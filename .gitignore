@@ -7,6 +7,8 @@
 # La config real vive dentro del server (gitignoreada por su propio repo).
 # En este repo solo va config/config.yaml.example con placeholders.
 **/.config.yaml
+# el config real del server tampoco (solo va el .example)
+server/config.yaml
 *.key
 .env
 .env.*

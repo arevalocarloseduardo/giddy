@@ -1,0 +1,45 @@
+// Auto-generado desde main/assets/lang_config.h: los .ogg que la placa embebe
+// con EMBED_FILES. El simulador no reproduce audio: símbolos vacíos.
+#include <stdint.h>
+extern "C" const char binary_0_ogg_end[1] = {0};
+extern "C" const char binary_0_ogg_start[1] = {0};
+extern "C" const char binary_1_ogg_end[1] = {0};
+extern "C" const char binary_1_ogg_start[1] = {0};
+extern "C" const char binary_2_ogg_end[1] = {0};
+extern "C" const char binary_2_ogg_start[1] = {0};
+extern "C" const char binary_3_ogg_end[1] = {0};
+extern "C" const char binary_3_ogg_start[1] = {0};
+extern "C" const char binary_4_ogg_end[1] = {0};
+extern "C" const char binary_4_ogg_start[1] = {0};
+extern "C" const char binary_5_ogg_end[1] = {0};
+extern "C" const char binary_5_ogg_start[1] = {0};
+extern "C" const char binary_6_ogg_end[1] = {0};
+extern "C" const char binary_6_ogg_start[1] = {0};
+extern "C" const char binary_7_ogg_end[1] = {0};
+extern "C" const char binary_7_ogg_start[1] = {0};
+extern "C" const char binary_8_ogg_end[1] = {0};
+extern "C" const char binary_8_ogg_start[1] = {0};
+extern "C" const char binary_9_ogg_end[1] = {0};
+extern "C" const char binary_9_ogg_start[1] = {0};
+extern "C" const char binary_activation_ogg_end[1] = {0};
+extern "C" const char binary_activation_ogg_start[1] = {0};
+extern "C" const char binary_err_pin_ogg_end[1] = {0};
+extern "C" const char binary_err_pin_ogg_start[1] = {0};
+extern "C" const char binary_err_reg_ogg_end[1] = {0};
+extern "C" const char binary_err_reg_ogg_start[1] = {0};
+extern "C" const char binary_exclamation_ogg_end[1] = {0};
+extern "C" const char binary_exclamation_ogg_start[1] = {0};
+extern "C" const char binary_low_battery_ogg_end[1] = {0};
+extern "C" const char binary_low_battery_ogg_start[1] = {0};
+extern "C" const char binary_popup_ogg_end[1] = {0};
+extern "C" const char binary_popup_ogg_start[1] = {0};
+extern "C" const char binary_success_ogg_end[1] = {0};
+extern "C" const char binary_success_ogg_start[1] = {0};
+extern "C" const char binary_upgrade_ogg_end[1] = {0};
+extern "C" const char binary_upgrade_ogg_start[1] = {0};
+extern "C" const char binary_vibration_ogg_end[1] = {0};
+extern "C" const char binary_vibration_ogg_start[1] = {0};
+extern "C" const char binary_welcome_ogg_end[1] = {0};
+extern "C" const char binary_welcome_ogg_start[1] = {0};
+extern "C" const char binary_wificonfig_ogg_end[1] = {0};
+extern "C" const char binary_wificonfig_ogg_start[1] = {0};

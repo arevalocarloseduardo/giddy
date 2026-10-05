@@ -1,0 +1,22 @@
+# Guion de demo: cuatro capturas de estados típicos de Giddy
+emotion neutral
+wait 700
+shot out/01-neutral.png
+state listening
+user Giddy, ¿qué hora es en Buenos Aires?
+wait 600
+shot out/02-escuchando.png
+emotion thinking
+clear
+wait 600
+shot out/03-pensando.png
+state speaking
+emotion happy
+bot Son las tres y media de la tarde. ¿Querés que te recuerde algo?
+wait 1500
+shot out/04-hablando.png
+emotion sleepy
+clear
+wait 600
+shot out/05-dormida.png
+quit

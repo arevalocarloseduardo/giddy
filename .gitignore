@@ -57,3 +57,7 @@ site/dev.stderr.log
 server/tmp-stt-test.wav
 site/.git.bak/
 .next/
+
+# --- Simulador de pantalla ---
+firmware/simulator/out/
+firmware/simulator/*.png

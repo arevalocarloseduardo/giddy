@@ -24,6 +24,7 @@ Decís **"Giddy"** y te responde en español argentino, con una cara de robot qu
 | `docs/` | **Toda la documentación.** Empezá por acá. |
 | `server/` | El servidor completo, con nuestros cambios ya aplicados |
 | `firmware/` | El firmware completo, con nuestros cambios ya aplicados |
+| `firmware/simulator/` | 🖥️ **Simulador de la pantalla** en la compu: la cara real sin flashear |
 | `avatar/` | Generadores Python de la cara animada + los 22 GIFs listos |
 | `patches/` | Nuestros cambios sobre los repos upstream (firmware y servidor) |
 | `config/` | Plantilla de configuración del servidor (sin claves) |
@@ -42,6 +43,7 @@ Decís **"Giddy"** y te responde en español argentino, con una cara de robot qu
 7. **[docs/07-versiones.md](docs/07-versiones.md)** — 🔒 versiones del upstream de las que partimos
 8. **[docs/08-instalar-en-windows.md](docs/08-instalar-en-windows.md)** — 🪟 **levantar todo en la PC Windows**
 9. **[docs/09-hermes-giddy-local.md](docs/09-hermes-giddy-local.md)** — despliegue local integrado con un Hermes dedicado
+13. **[docs/13-simulador.md](docs/13-simulador.md)** — 🖥️ probar la cara y los subtítulos en la compu, sin la placa
 
 ## ⚠️ Sobre las claves API
 

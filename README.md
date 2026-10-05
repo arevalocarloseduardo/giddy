@@ -44,6 +44,7 @@ Decís **"Giddy"** y te responde en español argentino, con una cara de robot qu
 8. **[docs/08-instalar-en-windows.md](docs/08-instalar-en-windows.md)** — 🪟 **levantar todo en la PC Windows**
 9. **[docs/09-hermes-giddy-local.md](docs/09-hermes-giddy-local.md)** — despliegue local integrado con un Hermes dedicado
 13. **[docs/13-simulador.md](docs/13-simulador.md)** — 🖥️ probar la cara y los subtítulos en la compu, sin la placa
+14. **[docs/14-comparacion-muse.md](docs/14-comparacion-muse.md)** — ⚖️ Giddy vs. Muse Gadgets de Meta: qué robarle y qué no
 
 ## ⚠️ Sobre las claves API
 

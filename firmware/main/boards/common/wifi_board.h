@@ -30,6 +30,7 @@ protected:
      * Enter WiFi configuration mode
      */
     void StartWifiConfigMode();
+    std::string GetConfigApPassword();
 
     /**
      * WiFi connection timeout callback

@@ -66,9 +66,9 @@ Encontrados leyendo nuestro propio firmware con la vara de Muse. Verificados en 
 
 | Severidad | Dónde | Qué pasa |
 |---|---|---|
-| 🔴 Seguridad | `main/mcp_server.cc` | Las tools `user_only` (`upgrade_firmware(url)`, `reboot`, `assets.set_download_url`) solo se **ocultan** del listado; `DoToolCall` no verifica el flag. Cualquiera que hable con el websocket puede flashear un firmware desde cualquier URL |
-| 🔴 Seguridad | `sdkconfig.defaults:8`, OTA | `BOOTLOADER_SKIP_VALIDATE_ALWAYS=y`, sin Secure Boot ni firma: la OTA acepta cualquier binario |
-| 🔴 Seguridad | `78__esp-wifi-connect`, `wifi_board.cc:58` | Hotspot de configuración **abierto** y todavía llamado "Xiaozhi-XXXX" |
+| ✅ cerrado 2.4.19 (era 🔴) | `main/mcp_server.cc` | Las tools `user_only` (`upgrade_firmware(url)`, `reboot`, `assets.set_download_url`) solo se **ocultan** del listado; `DoToolCall` no verifica el flag. Cualquiera que hable con el websocket puede flashear un firmware desde cualquier URL |
+| ✅ cerrado 2.4.19 (era 🔴) | `sdkconfig.defaults`, OTA | Antes: `BOOTLOADER_SKIP_VALIDATE_ALWAYS=y` y sin firma. Ahora: firma RSA-3072 obligatoria en OTA (`SECURE_SIGNED_ON_UPDATE_NO_SECURE_BOOT`) y validación al arrancar. Sigue sin Secure Boot por hardware (protege por red, no físico) |
+| ✅ cerrado 2.4.19 (era 🔴) | `wifi_board.cc` | Hotspot ahora `Giddy-XXXX` con clave WPA2 de 8 dígitos por equipo, mostrada en pantalla |
 | 🟠 Crash | `protocols/websocket_protocol.cc:245` | Un hello del server sin campo `transport` desreferencia un puntero nulo |
 | 🟠 Crash | `ota.cc:423` | `std::stoi` sobre la versión: una versión no numérica tira excepción |
 | 🟠 Crash | `settings.cc:13` | `ESP_ERROR_CHECK` sobre `nvs_commit`: un fallo de escritura reinicia el equipo |
@@ -81,7 +81,7 @@ Encontrados leyendo nuestro propio firmware con la vara de Muse. Verificados en 
 
 ## 5. Plan sugerido
 
-1. **Ahora, barato (1 semana):** cerrar los 🔴 y 🟠 de la tabla anterior. Hacer cumplir `user_only`, activar firma de OTA, cerrar el hotspot con clave y renombrarlo, arreglar los tres crashes. Esto no cambia la experiencia pero evita un desastre.
+1. **Ahora, barato (1 semana):** cerrar los 🔴 y 🟠 de la tabla anterior. ✅ Los tres 🔴 se cerraron en la 2.4.19 (`user_only` cumplido, OTA firmada, hotspot con clave). Quedan los tres crashes 🟠.
 2. **Antes de la primera serie (3–4 semanas):** emparejamiento BLE + identidad por dispositivo + `wss`. Es lo que un cliente va a sentir en los primeros 5 minutos con la caja.
 3. **Después, con el simulador:** subtítulo paginado, overlay reactivo, tests deterministas. Es UX, se itera en la compu.
 4. **Siempre:** reporte de fallas en el siguiente hello. El día que un cliente diga "se quedó tildado", es la única forma de saber qué pasó.

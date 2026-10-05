@@ -11,6 +11,9 @@
 #include <esp_network.h>
 #include <esp_log.h>
 #include <esp_mac.h>
+#include <esp_wifi.h>
+#include <esp_random.h>
+#include <string.h>
 #include <utility>
 
 #include <material_symbols.h>
@@ -55,7 +58,7 @@ void WifiBoard::StartNetwork() {
 
     // Initialize WiFi manager
     WifiManagerConfig config;
-    config.ssid_prefix = "Xiaozhi";
+    config.ssid_prefix = "Giddy";
     config.language = Lang::CODE;
     // Set a DHCP hostname so the router shows a friendly name instead of "espressif".
     // Uses the same "<prefix>-<last 2 MAC bytes>" scheme as the config AP SSID.
@@ -165,6 +168,19 @@ void WifiBoard::OnWifiConnectTimeout(void* arg) {
     board->StartWifiConfigMode();
 }
 
+std::string WifiBoard::GetConfigApPassword() {
+    Settings settings("giddy", true);
+    std::string password = settings.GetString("ap_password");
+    if (password.length() == 8) {
+        return password;
+    }
+    char buf[9];
+    snprintf(buf, sizeof(buf), "%08lu", (unsigned long)(esp_random() % 100000000UL));
+    password = buf;
+    settings.SetString("ap_password", password);
+    return password;
+}
+
 void WifiBoard::StartWifiConfigMode() {
     in_config_mode_ = true;
     // Transition to wifi configuring state
@@ -174,10 +190,30 @@ void WifiBoard::StartWifiConfigMode() {
 
     wifi_manager.StartConfigAp();
 
+    // Giddy: el componente esp-wifi-connect levanta el hotspot ABIERTO. Lo
+    // reconfiguramos con WPA2 y una clave propia del equipo (8 digitos, generada
+    // una vez con esp_random y guardada en NVS), que se muestra en la pantalla.
+    // esp_wifi_set_config sobre el AP ya iniciado lo reinicia con la nueva config.
+    std::string ap_password = GetConfigApPassword();
+    {
+        wifi_config_t ap_config = {};
+        if (esp_wifi_get_config(WIFI_IF_AP, &ap_config) == ESP_OK) {
+            strlcpy((char*)ap_config.ap.password, ap_password.c_str(), sizeof(ap_config.ap.password));
+            ap_config.ap.authmode = WIFI_AUTH_WPA2_PSK;
+            ap_config.ap.pmf_cfg.required = false;
+            ESP_ERROR_CHECK_WITHOUT_ABORT(esp_wifi_set_config(WIFI_IF_AP, &ap_config));
+        } else {
+            ESP_LOGE(TAG, "Could not read AP config; hotspot stays open");
+        }
+    }
+
     // Show config prompt after a short delay
-    Application::GetInstance().Schedule([&wifi_manager]() {
+    Application::GetInstance().Schedule([&wifi_manager, ap_password]() {
         std::string hint = Lang::Strings::CONNECT_TO_HOTSPOT;
         hint += wifi_manager.GetApSsid();
+        hint += " ";
+        hint += Lang::Strings::HOTSPOT_PASSWORD;
+        hint += ap_password;
         hint += Lang::Strings::ACCESS_VIA_BROWSER;
         hint += wifi_manager.GetApWebUrl();
 

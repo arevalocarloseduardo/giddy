@@ -81,6 +81,12 @@ power_save_timer_ = new PowerSaveTimer(-1, 300, -1);
 
 Antes era `(-1, 60, 300)` → **se apagaba sola a los 5 minutos**. Ahora solo atenúa la pantalla y **nunca** auto-apaga (el tercer parámetro en -1). Un asistente tiene que estar siempre a la escucha.
 
+### Seguridad de producto (desde 2.4.19, ver docs/14)
+
+- **Hotspot de configuración con clave**: el punto de acceso se llama `Giddy-XXXX` (antes "Xiaozhi") y pide una clave WPA2 de 8 dígitos, distinta por equipo, que la placa **muestra en la pantalla** junto al nombre de la red. Se genera una vez y queda en NVS (`giddy/ap_password`). Implementado en `boards/common/wifi_board.cc` reconfigurando el AP que levanta `esp-wifi-connect`, para no tocar el componente.
+- **Tools MCP "solo usuario" realmente bloqueadas**: `self.upgrade_firmware`, `self.screen.snapshot` y compañía ya no se pueden invocar desde el websocket. Solo pasan las tres que el server usa (`self.reboot`, `self.assets.set_download_url`, `self.screen.preview_image`), lista cerrada en `mcp_server.cc`.
+- **Firmware firmado**: ver [docs/05](05-ota-sin-cable.md) y `firmware/secure/README.md`. El bootloader además vuelve a validar la imagen en cada arranque (`BOOTLOADER_SKIP_VALIDATE_ALWAYS=n`).
+
 ## El avatar animado
 
 22 GIFs de 240×240 (21 emociones + `robot_2` = standby) en `custom_emoji/robot-pro_240/`, generados por `generate_faces_pro.py` (Pillow).
@@ -110,6 +116,17 @@ python -m esptool --chip esp32s3 -p /dev/cu.usbmodem101 -b 230400 \
 ```
 
 (El resto del firmware normalmente sí queda bien flasheado.)
+
+## Problema conocido: "Missing required kconfig option after retry"
+
+Si `idf.py reconfigure` o `build` muere con ese error de CMake (viene del gestor de componentes, se queja de `ESP_VIDEO_USE_CUSTOMIZED_ESP_H264_VERSION`), **no es tu código**. Pasa cuando `dependencies.lock` quedó de una resolución anterior. Solución:
+
+```bash
+rm -f dependencies.lock sdkconfig
+IDF_TARGET=esp32s3 idf.py reconfigure
+```
+
+El lock se regenera (está en `.gitignore`, no se commitea). La única corrida que funciona es la que "resuelve dependencias desde cero".
 
 ## Verificar que arrancó bien
 

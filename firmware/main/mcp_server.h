@@ -336,6 +336,7 @@ private:
     void ReplyError(int id, const std::string& message);
 
     void GetToolsList(int id, const std::string& cursor, bool list_user_only_tools);
+    static bool IsServerCallableUserTool(const std::string& tool_name);
     void DoToolCall(int id, const std::string& tool_name, const cJSON* tool_arguments);
 
     std::vector<McpTool*> tools_;

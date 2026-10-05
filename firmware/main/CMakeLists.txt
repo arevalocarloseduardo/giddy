@@ -1085,6 +1085,13 @@ idf_component_register(SRCS ${SOURCES}
                         ${MAIN_PRIV_REQUIRES_EXTRA}
                     )
 
+# Giddy: el componente waveshare/qmi8658 (IMU) declara REQUIRES "driver", que en
+# ESP-IDF 6 ya no arrastra el driver I2C nuevo (driver/i2c_master.h vive en
+# esp_driver_i2c). Se lo enlazamos aca para no editar managed_components/.
+if(TARGET __idf_waveshare__qmi8658)
+    target_link_libraries(__idf_waveshare__qmi8658 PRIVATE idf::esp_driver_i2c)
+endif()
+
 # Use target_compile_definitions to define BOARD_TYPE, BOARD_NAME
 # If BOARD_NAME is empty, use BOARD_TYPE
 if(NOT BOARD_NAME)

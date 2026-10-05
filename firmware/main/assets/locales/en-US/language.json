@@ -32,6 +32,7 @@
         "SERVER_TIMEOUT": "Waiting for response timeout",
         "SERVER_ERROR": "Sending failed, please check the network",
         "CONNECT_TO_HOTSPOT": "Hotspot: ",
+        "HOTSPOT_PASSWORD": "Password: ",
         "ACCESS_VIA_BROWSER": " Config URL: ",
         "WIFI_CONFIG_MODE": "Wi-Fi Configuration Mode",
         "ENTERING_WIFI_CONFIG_MODE": "Entering Wi-Fi configuration mode...",

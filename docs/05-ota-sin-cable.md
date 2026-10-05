@@ -28,6 +28,14 @@ esp32-s3-touch-lcd-1.54_2.4.6.bin
 
 El servidor compara esa versión con la que reporta la placa y, si es mayor, le pasa la URL de descarga.
 
+## 🔏 Desde la 2.4.19: solo firmware firmado
+
+La placa **rechaza cualquier `.bin` que no esté firmado** con la clave de `firmware/secure/giddy_ota_signing_key.pem` (RSA-3072, verificación en `esp_ota_end`). El build lo firma solo; vos no hacés nada distinto. Pero:
+
+- La clave **no está en git**. En la máquina donde compiles tiene que existir ese archivo o `idf.py build` falla. Cómo pasarla y por qué no se regenera nunca: [firmware/secure/README.md](../firmware/secure/README.md).
+- Las placas con firmware viejo (≤ 2.4.18) aceptan la primera OTA firmada sin problema, porque todavía no verifican. Después, solo firmado.
+- Verificar un binario: `espsecure verify-signature --version 2 --keyfile secure/giddy_ota_signing_key.pem build/xiaozhi.bin`
+
 ## El flujo completo
 
 ### 1. Subir la versión del firmware

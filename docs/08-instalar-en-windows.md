@@ -141,6 +141,8 @@ Ahora sí, lo del principio. En `firmware/sdkconfig.defaults` cambiá la IP:
 CONFIG_OTA_URL="http://192.168.0.XX:8003/xiaozhi/ota/"
 ```
 
+> 🔏 **Antes de compilar en cualquier máquina**: copiá la clave de firma a `firmware\secure\giddy_ota_signing_key.pem` (por USB o gestor de contraseñas, nunca por git ni chat). Sin ella el build falla. Detalles en `firmware/secure/README.md`.
+
 Y recompilá + flasheá. Dos opciones:
 
 ### Opción A — desde la Mac (más simple, ya está todo instalado)
@@ -184,6 +186,7 @@ Register-ScheduledTask -TaskName "Giddy" -Action $acc `
 | La placa no conecta | Firewall (paso 5) o la IP no coincide (paso 4b y 7) |
 | Anda y a los días deja de andar | La IP de la PC cambió → ponele **IP fija** en el router |
 | Giddy queda muda | `.\venv\Scripts\python.exe -m pip install -U edge-tts` |
+| `Missing required kconfig option after retry` | Borrá `dependencies.lock` y `sdkconfig` en `firmware\` y volvé a correr `idf.py reconfigure` (ver docs/03) |
 | No encuentro el puerto COM | Administrador de dispositivos → Puertos (COM y LPT). Si no aparece, mantené **BOOT** al enchufar |
 
 ## Y después: Hermes Agent

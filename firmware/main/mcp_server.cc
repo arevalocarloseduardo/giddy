@@ -506,6 +506,24 @@ void McpServer::GetToolsList(int id, const std::string& cursor, bool list_user_o
     ReplyResult(id, json);
 }
 
+bool McpServer::IsServerCallableUserTool(const std::string& tool_name) {
+    // Lista cerrada. Agregar aca solo lo que server/ invoque de verdad
+    // (giddy_firmware.py, generate_image.py) y que no permita tomar control
+    // del equipo. upgrade_firmware queda afuera: la OTA va por ota.cc y ahora
+    // exige firma.
+    static const char* kAllowed[] = {
+        "self.reboot",                   // giddy_firmware.py: reinicio tras cambiar assets
+        "self.assets.set_download_url",  // giddy_firmware.py: fallback de assets por MCP
+        "self.screen.preview_image",     // generate_image.py: mostrar imagen generada
+    };
+    for (auto name : kAllowed) {
+        if (tool_name == name) {
+            return true;
+        }
+    }
+    return false;
+}
+
 void McpServer::DoToolCall(int id, const std::string& tool_name, const cJSON* tool_arguments) {
     auto tool_iter = std::find_if(tools_.begin(), tools_.end(), 
                                  [&tool_name](const McpTool* tool) { 
@@ -515,6 +533,17 @@ void McpServer::DoToolCall(int id, const std::string& tool_name, const cJSON* to
     if (tool_iter == tools_.end()) {
         ESP_LOGE(TAG, "tools/call: Unknown tool: %s", tool_name.c_str());
         ReplyError(id, "Unknown tool: " + tool_name);
+        return;
+    }
+
+    // Giddy: las tools "user_only" (upgrade_firmware desde cualquier URL, snapshot
+    // a cualquier URL, etc.) antes solo se OCULTABAN del listado, pero cualquiera
+    // que hablara con el websocket podia invocarlas. Hasta que el canal este
+    // autenticado (docs/14, plan item 2), solo se admiten las que el servidor de
+    // Giddy necesita de verdad. Todo lo demas se rechaza.
+    if ((*tool_iter)->user_only() && !IsServerCallableUserTool(tool_name)) {
+        ESP_LOGW(TAG, "tools/call: Rejected user-only tool from server: %s", tool_name.c_str());
+        ReplyError(id, "Tool not allowed over this channel: " + tool_name);
         return;
     }
 

@@ -147,8 +147,13 @@ extern "C" esp_err_t esp_lcd_panel_draw_bitmap(esp_lcd_panel_handle_t, int, int,
 extern "C" esp_err_t esp_lcd_panel_disp_on_off(esp_lcd_panel_handle_t, bool) { return ESP_OK; }
 extern "C" esp_err_t esp_lcd_panel_del(esp_lcd_panel_handle_t) { return ESP_OK; }
 
+// La pantalla SDL que main.cc crea antes de construir el display. Así el
+// constructor real de SpiLcdDisplay "agrega" la pantalla igual que en la placa.
+static lv_display_t* s_sim_display = nullptr;
+void sim_set_lvgl_display(lv_display_t* disp) { s_sim_display = disp; }
+
 extern "C" esp_err_t lvgl_port_init(const lvgl_port_cfg_t*) { return ESP_OK; }
-extern "C" lv_display_t* lvgl_port_add_disp(const lvgl_port_display_cfg_t*) { return nullptr; }
+extern "C" lv_display_t* lvgl_port_add_disp(const lvgl_port_display_cfg_t*) { return s_sim_display; }
 extern "C" lv_display_t* lvgl_port_add_disp_rgb(const lvgl_port_display_cfg_t*,
                                                 const lvgl_port_display_rgb_cfg_t*) {
     return nullptr;

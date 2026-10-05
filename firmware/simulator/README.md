@@ -1,8 +1,9 @@
 # Simulador de la pantalla de Giddy
 
 Dibuja en una ventana de la compu **exactamente** lo que muestra la placa: compila el mismo
-`main/display/lcd_display.cc`, los mismos temas, fuentes y GIFs del avatar, con LVGL 9.5
-(el mismo árbol de `managed_components/`) y SDL2 como "pantalla".
+`main/display/lcd_display.cc` **y la `GiddyDisplay` de la Touch-LCD-1.54** (boot, caras de
+actividad, dormir/despertar, momentos idle, notificaciones), con los mismos temas, fuentes y
+GIFs del avatar, sobre LVGL 9.5 (el mismo árbol de `managed_components/`) y SDL2 como "pantalla".
 
 Sirve para iterar la cara, los subtítulos y los estados en segundos, sin compilar el
 firmware ni flashear 5 MB de assets. Y para sacar capturas PNG automáticas.
@@ -14,9 +15,10 @@ necesitando la placa.
 
 - CMake ≥ 3.20, Ninja, clang o gcc con C++17
 - SDL2 (`brew install sdl2` en Mac; `sudo apt install libsdl2-dev` en Linux)
-- Haber compilado el firmware **una vez** (`idf.py build` o `idf.py reconfigure`) para que
-  exista `managed_components/` con LVGL y las fuentes. No hace falta ESP-IDF para el
-  simulador en sí.
+- `managed_components/` con LVGL y las fuentes. Lo baja ESP-IDF la primera vez que compilás
+  el firmware (`IDF_TARGET=esp32s3 idf.py reconfigure` alcanza). Si no está, el CMake busca
+  el clon `../xiaozhi-esp32/managed_components` o aceptá `-DMANAGED_DIR=...`. No hace falta
+  ESP-IDF para el simulador en sí.
 
 ## Compilar
 
@@ -42,8 +44,14 @@ cmake --build build --parallel
 | b | subtítulo del bot |
 | l | texto largo (prueba el marquee) |
 | c | limpiar subtítulo |
-| i / e / h | estado idle / escuchando / hablando |
+| i / e / h | estado idle / escuchando / hablando (cambia la cara de actividad) |
+| z | dormir / despertar (secuencias `dozing` y `wake`) |
+| f | despedida (`goodnight`) |
+| r | rotar la cara 90° (lo que hace el IMU al dar vuelta la placa) |
+| n | notificación de prueba |
 | s | captura `giddy-N.png` |
+
+Si no tocás nada ~18 s, aparecen los "momentos" idle (curious, winking, happy), igual que en la placa.
 | q / Esc | salir |
 
 ### Capturas automáticas (sin ventana)
@@ -60,6 +68,10 @@ user TEXTO             # subtítulo como si hablaras vos
 bot TEXTO              # subtítulo como si hablara Giddy
 clear                  # borra el subtítulo
 state speaking         # idle | listening | speaking | connecting | starting
+sleep                  # secuencia de dormir (dozing -> sleepy)
+wake                   # secuencia de despertar
+farewell               # despedida (goodnight)
+rotate 90              # rotar la cara (0, 90, 180, 270)
 battery 15             # nivel de batería (agregá "charging" si carga)
 status TEXTO           # barra de estado (oculta en la UI de Giddy)
 notify TEXTO           # notificación (ídem)
@@ -79,10 +91,11 @@ Una sola captura rápida: `./build/giddy_simulator --headless --emotion happy --
 
 ```
 simulator/
-├── CMakeLists.txt    compila main/display/** + fuentes + LVGL del firmware
+├── CMakeLists.txt    compila main/display/** + boards/.../giddy_display.cc + fuentes + LVGL
 ├── lv_conf.h         réplica de lo que el firmware configura por Kconfig + LV_USE_SDL
 ├── compat/           stubs de ESP-IDF: esp_log, esp_timer (sobre lv_timer), esp_pm,
-│                     heap_caps, esp_lvgl_port, Settings en memoria, Board/Application fake
+│                     heap_caps, esp_lvgl_port (devuelve la ventana SDL), Settings en memoria,
+│                     Board/Application/Assets/SystemInfo fake
 ├── src/main.cc       ventana SDL, carga del avatar, guion, teclas, captura PNG
 ├── src/sim_esp.cc    implementación de los stubs
 ├── src/sim_sounds.cc símbolos vacíos de los .ogg que embebe la placa
@@ -90,7 +103,7 @@ simulator/
 ```
 
 La regla de oro: **el simulador no copia código del display**. Si el firmware cambia
-`lcd_display.cc`, el simulador lo refleja al recompilar. Si algo se ve distinto acá que en
+`lcd_display.cc` o `giddy_display.cc`, el simulador lo refleja al recompilar. Si algo se ve distinto acá que en
 la placa, es un bug del simulador (probablemente en `lv_conf.h` o `compat/sdkconfig.h`).
 
 ## Problemas típicos

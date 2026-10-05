@@ -31,8 +31,11 @@
 #include "application.h"
 #include "board.h"
 #include "esp_log.h"
+#include "giddy_display.h"
 #include "lcd_display.h"
 #include "lvgl_theme.h"
+
+void sim_set_lvgl_display(lv_display_t* disp);
 
 namespace fs = std::filesystem;
 
@@ -41,13 +44,18 @@ namespace fs = std::filesystem;
 static const int kWidth = 240;
 static const int kHeight = 240;
 
-// ---------------- LcdDisplay sobre SDL ----------------
-// Usa el constructor protegido de LcdDisplay (sin panel) y le enchufa la
-// pantalla SDL. Todo lo demás (temas, SetupUI, SetEmotion, subtítulos) es el
-// código real del firmware.
-class SimDisplay : public LcdDisplay {
+// ---------------- GiddyDisplay sobre SDL ----------------
+// Construye la GiddyDisplay real (la de la placa Touch-LCD-1.54, con su boot,
+// sus "momentos" y sus timers). El constructor de SpiLcdDisplay pide la
+// pantalla a lvgl_port_add_disp(), que en el simulador devuelve la ventana SDL.
+class SimDisplay : public GiddyDisplay {
 public:
-    SimDisplay(lv_display_t* disp) : LcdDisplay(nullptr, nullptr, kWidth, kHeight) { display_ = disp; }
+    SimDisplay()
+        : GiddyDisplay(nullptr, nullptr, kWidth, kHeight, 0, 0, false, false, false) {}
+    using GiddyDisplay::PlayFarewellSequence;
+    using GiddyDisplay::PlaySleepSequence;
+    using GiddyDisplay::PlayWakeSequence;
+    using GiddyDisplay::SetFaceRotation;
 };
 
 // ---------------- Avatar: cargar GIFs/PNGs de un directorio ----------------
@@ -173,6 +181,17 @@ static void RunStep(const Step& s) {
         g_display->ShowNotification(s.arg.c_str());
     } else if (s.cmd == "state") {
         SetState(s.arg);
+        // En la placa, Application::SetDeviceState llama a SetStatus(), y ahí
+        // GiddyDisplay decide la cara de actividad (listening/speaking/...).
+        g_display->SetStatus(s.arg.c_str());
+    } else if (s.cmd == "sleep") {
+        g_display->SetPowerSaveMode(true);
+    } else if (s.cmd == "wake") {
+        g_display->SetPowerSaveMode(false);
+    } else if (s.cmd == "farewell") {
+        g_display->PlayFarewellSequence();
+    } else if (s.cmd == "rotate") {
+        g_display->SetFaceRotation(atoi(s.arg.c_str()));
     } else if (s.cmd == "battery") {
         int lvl = atoi(s.arg.c_str());
         Board::GetInstance().SetBattery(lvl, s.arg.find("charging") != std::string::npos);
@@ -227,6 +246,8 @@ static void PrintHelp() {
         "  u           subtítulo del usuario      b  subtítulo del bot\n"
         "  l           texto largo (marquee)      c  limpiar subtítulo\n"
         "  i / e / h   estado idle / escuchando / hablando\n"
+        "  z           dormir / despertar         f  despedida (goodnight)\n"
+        "  r           rotar la cara 90°          n  notificación de prueba\n"
         "  s           captura giddy-N.png        q / Esc  salir\n\n");
     printf("Caras disponibles (%zu):", g_emotions.size());
     for (size_t i = 0; i < g_emotions.size(); i++) printf(" %zu=%s", i + 1, g_emotions[i].c_str());
@@ -258,6 +279,20 @@ static int EventWatch(void*, SDL_Event* ev) {
         case SDLK_i: g_key_queue.push_back({"state", "idle"}); break;
         case SDLK_e: g_key_queue.push_back({"state", "listening"}); break;
         case SDLK_h: g_key_queue.push_back({"state", "speaking"}); break;
+        case SDLK_z: {
+            static bool asleep = false;
+            asleep = !asleep;
+            g_key_queue.push_back({asleep ? "sleep" : "wake", ""});
+            break;
+        }
+        case SDLK_f: g_key_queue.push_back({"farewell", ""}); break;
+        case SDLK_r: {
+            static int rot = 0;
+            rot = (rot + 90) % 360;
+            g_key_queue.push_back({"rotate", std::to_string(rot)});
+            break;
+        }
+        case SDLK_n: g_key_queue.push_back({"notify", "Modo silencioso"}); break;
         case SDLK_s: {
             char name[64];
             snprintf(name, sizeof(name), "giddy-%d.png", ++g_shot_counter);
@@ -326,7 +361,8 @@ int main(int argc, char** argv) {
     SDL_AddEventWatch(EventWatch, nullptr);
 
     // El display real del firmware
-    g_display = new SimDisplay(disp);
+    sim_set_lvgl_display(disp);
+    g_display = new SimDisplay();
     Board::GetInstance().SetDisplay(g_display);
 
     // Avatar
@@ -340,8 +376,8 @@ int main(int argc, char** argv) {
     }
     if (!loaded) ESP_LOGW(TAG, "sin GIFs del avatar: se usarán los íconos de fuente");
 
-    g_display->SetupUI();
-    g_display->SetEmotion(emotion.c_str());
+    g_display->SetupUI();  // GiddyDisplay arranca con su secuencia de boot
+    if (emotion != "neutral") g_display->SetEmotion(emotion.c_str());
     auto it = std::find(g_emotions.begin(), g_emotions.end(), emotion);
     if (it != g_emotions.end()) g_emotion_idx = (int)(it - g_emotions.begin());
 

@@ -1,6 +1,6 @@
 # 13 — Simulador de la pantalla (sin la placa)
 
-Cada retoque de la cara de Giddy costaba compilar el firmware, flashear ~5 MB de assets por cable y mirar la placa. Ahora hay un simulador que **compila el mismo `lcd_display.cc` del firmware** y lo dibuja en una ventana de la compu con LVGL 9.5 + SDL2. Lo que ves ahí es lo que va a mostrar la placa, GIFs animados y subtítulo incluidos.
+Cada retoque de la cara de Giddy costaba compilar el firmware, flashear ~5 MB de assets por cable y mirar la placa. Ahora hay un simulador que **compila el mismo código de display del firmware** (`lcd_display.cc` y la `GiddyDisplay` de la placa: boot, caras de actividad, dormir/despertar, momentos idle) y lo dibuja en una ventana de la compu con LVGL 9.5 + SDL2. Lo que ves ahí es lo que va a mostrar la placa, GIFs animados y subtítulo incluidos.
 
 La guía completa (compilar, teclas, guiones, cómo está armado) está en **[firmware/simulator/README.md](../firmware/simulator/README.md)**. Acá, lo esencial.
 
@@ -19,8 +19,9 @@ cmake -S . -B build -G Ninja && cmake --build build --parallel
 
 - **Iterar la cara**: cambiás un GIF en `avatar/robot-pro_240/`, relanzás, lo ves. Sin flashear.
 - **Probar el subtítulo**: `u` muestra lo que dijiste vos, `b` lo que responde Giddy, `l` un texto largo para ver el marquee.
+- **Recorrer el ciclo de vida**: `e`/`h`/`i` cambian el estado (la cara de actividad sigue), `z` duerme y despierta, `f` la despedida, `r` rota la cara como el IMU.
 - **Capturas automáticas**: `./build/giddy_simulator --headless --script scripts/demo.txt` genera PNGs de todos los estados. Ideal para comparar antes/después de un cambio o para el material de venta.
-- **Desarrollar la UI que falta** (boca que se mueve al hablar, colores distintos por quién habla) con ciclos de segundos en vez de minutos.
+- **Desarrollar lo que falta de UI** (por ejemplo colores distintos para el subtítulo según quién habla) con ciclos de segundos en vez de minutos.
 
 ## Lo que no simula
 
